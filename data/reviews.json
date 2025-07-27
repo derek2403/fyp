@@ -1,0 +1,46 @@
+{
+  "reviews": [
+    {
+      "id": "review_1",
+      "userId": "user_1",
+      "merchantId": "merchant_1",
+      "username": "FoodLover123",
+      "restaurantName": "Pizza Palace",
+      "rating": 4,
+      "review": "Amazing authentic Italian pizza! The crust was perfectly crispy and the toppings were fresh.",
+      "date": "2024-01-15",
+      "upvotes": 12,
+      "downvotes": 2,
+      "confidenceScore": 92,
+      "createdAt": "2024-01-15T00:00:00Z"
+    },
+    {
+      "id": "review_2",
+      "userId": "user_2",
+      "merchantId": "merchant_1",
+      "username": "SpiceHunter",
+      "restaurantName": "Pizza Palace",
+      "rating": 5,
+      "review": "Best pizza in town! The pepperoni is perfectly spicy and the cheese is gooey.",
+      "date": "2024-01-14",
+      "upvotes": 15,
+      "downvotes": 0,
+      "confidenceScore": 95,
+      "createdAt": "2024-01-14T00:00:00Z"
+    },
+    {
+      "id": "review_3",
+      "userId": "user_3",
+      "merchantId": "merchant_1",
+      "username": "PizzaConnoisseur",
+      "restaurantName": "Pizza Palace",
+      "rating": 4,
+      "review": "Great authentic flavors. The margherita is a must-try. Will definitely come back!",
+      "date": "2024-01-13",
+      "upvotes": 8,
+      "downvotes": 1,
+      "confidenceScore": 87,
+      "createdAt": "2024-01-13T00:00:00Z"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ConnectWallet, useAddress, useContract, useContractWrite } from "@thirdweb-dev/react";
+import { ConnectWallet, useAddress } from "@thirdweb-dev/react";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -52,10 +52,11 @@ const spiceLevels = [
   { id: 'extreme', name: 'Extreme', description: 'The spicier the better' }
 ];
 
-export default function UserRegistration() {
+export default function UserLogin() {
   const router = useRouter();
   const address = useAddress();
   const [step, setStep] = useState(1);
+  const [isExistingUser, setIsExistingUser] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -65,6 +66,39 @@ export default function UserRegistration() {
     budget: 'medium',
     location: ''
   });
+
+  useEffect(() => {
+    if (address) {
+      checkUserExists();
+    }
+  }, [address]);
+
+  const checkUserExists = async () => {
+    try {
+      const response = await fetch('/api/users/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      const data = await response.json();
+      
+      if (data.exists) {
+        setIsExistingUser(true);
+        setFormData(data.user);
+        toast.success('Welcome back! Redirecting to menu...');
+        setTimeout(() => {
+          router.push('/users/menu');
+        }, 1500);
+      } else {
+        setIsExistingUser(false);
+        setStep(2);
+      }
+    } catch (error) {
+      console.error('Error checking user:', error);
+      setIsExistingUser(false);
+      setStep(2);
+    }
+  };
 
   const handleCategoryToggle = (categoryId) => {
     setFormData(prev => ({
@@ -94,24 +128,25 @@ export default function UserRegistration() {
     }
 
     try {
-      // Here you would typically save to your backend/database
       const userData = {
         address,
         ...formData,
-        registrationDate: new Date().toISOString(),
-        userType: 'user'
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      console.log('User registration data:', userData);
-      
-      // Set user type in localStorage for dashboard routing
-      localStorage.setItem('userType', 'user');
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast.success('Registration successful! Welcome to FoodChain!');
-      router.push('/dashboard');
+      const response = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+
+      if (response.ok) {
+        toast.success('Registration successful! Welcome to FoodChain!');
+        router.push('/users/menu');
+      } else {
+        throw new Error('Registration failed');
+      }
     } catch (error) {
       toast.error('Registration failed. Please try again.');
       console.error('Registration error:', error);
@@ -137,7 +172,7 @@ export default function UserRegistration() {
             </Link>
             <div className="flex items-center space-x-2">
               <Users className="w-8 h-8 text-blue-500" />
-              <span className="text-xl font-bold text-gray-900">User Registration</span>
+              <span className="text-xl font-bold text-gray-900">User Login</span>
             </div>
           </div>
         </div>
@@ -427,4 +462,4 @@ export default function UserRegistration() {
       </div>
     </div>
   );
-} 
+}

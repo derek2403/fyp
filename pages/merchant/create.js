@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { ConnectWallet, useAddress } from "@thirdweb-dev/react";
 import { motion } from "framer-motion";
@@ -44,14 +44,14 @@ const priceRanges = [
   { id: 'luxury', name: 'Luxury', range: '$$$$', description: '$50+ per person' }
 ];
 
-export default function MerchantRegistration() {
+export default function MerchantCreate() {
   const router = useRouter();
   const address = useAddress();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     shopName: '',
     description: '',
-    address: '',
+    businessAddress: '',
     phone: '',
     website: '',
     email: '',
@@ -76,6 +76,32 @@ export default function MerchantRegistration() {
     category: '',
     image: null
   });
+
+  useEffect(() => {
+    if (address) {
+      checkMerchantExists();
+    }
+  }, [address]);
+
+  const checkMerchantExists = async () => {
+    try {
+      const response = await fetch('/api/merchants/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      const data = await response.json();
+      
+      if (data.exists) {
+        toast.success('Welcome back! Redirecting to your dashboard...');
+        setTimeout(() => {
+          router.push('/merchant/dashboard');
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Error checking merchant:', error);
+    }
+  };
 
   const handleCuisineToggle = (cuisineId) => {
     setFormData(prev => ({
@@ -152,24 +178,25 @@ export default function MerchantRegistration() {
     }
 
     try {
-      // Here you would typically save to your backend/database
       const merchantData = {
         address,
         ...formData,
-        registrationDate: new Date().toISOString(),
-        userType: 'merchant'
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      console.log('Merchant registration data:', merchantData);
-      
-      // Set user type in localStorage for dashboard routing
-      localStorage.setItem('userType', 'merchant');
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast.success('Registration successful! Welcome to FoodChain!');
-      router.push('/dashboard');
+      const response = await fetch('/api/merchants/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(merchantData)
+      });
+
+      if (response.ok) {
+        toast.success('Restaurant created successfully! Welcome to FoodChain!');
+        router.push('/merchant/dashboard');
+      } else {
+        throw new Error('Failed to create restaurant');
+      }
     } catch (error) {
       toast.error('Registration failed. Please try again.');
       console.error('Registration error:', error);
@@ -178,7 +205,7 @@ export default function MerchantRegistration() {
 
   const canProceed = () => {
     if (step === 1) return address;
-    if (step === 2) return formData.shopName && formData.address && formData.phone;
+    if (step === 2) return formData.shopName && formData.businessAddress && formData.phone;
     if (step === 3) return formData.selectedCuisines.length > 0;
     if (step === 4) return formData.menu.length > 0;
     return true;
@@ -196,7 +223,7 @@ export default function MerchantRegistration() {
             </Link>
             <div className="flex items-center space-x-2">
               <Store className="w-8 h-8 text-green-500" />
-              <span className="text-xl font-bold text-gray-900">Merchant Registration</span>
+              <span className="text-xl font-bold text-gray-900">Create Restaurant</span>
             </div>
           </div>
         </div>
@@ -229,8 +256,8 @@ export default function MerchantRegistration() {
             <p className="text-sm text-gray-600">
               Step {step} of 5: {
                 step === 1 ? 'Connect Wallet' :
-                step === 2 ? 'Shop Details' :
-                step === 3 ? 'Cuisine & Pricing' :
+                step === 2 ? 'Restaurant Details' :
+                step === 3 ? 'Cuisine & Hours' :
                 step === 4 ? 'Menu Setup' :
                 'Review & Complete'
               }
@@ -270,7 +297,7 @@ export default function MerchantRegistration() {
           {step === 2 && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Shop Details
+                Restaurant Details
               </h2>
               <div className="space-y-6">
                 <div>
@@ -305,8 +332,8 @@ export default function MerchantRegistration() {
                     <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                     <input
                       type="text"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      value={formData.businessAddress}
+                      onChange={(e) => handleInputChange('businessAddress', e.target.value)}
                       className="input-field pl-10"
                       placeholder="Enter your restaurant address"
                     />
@@ -363,7 +390,7 @@ export default function MerchantRegistration() {
           {step === 3 && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Cuisine & Pricing
+                Cuisine & Opening Hours
               </h2>
               
               {/* Cuisine Types */}
@@ -596,7 +623,7 @@ export default function MerchantRegistration() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Restaurant Info</h3>
                     <div className="space-y-2 text-gray-600">
                       <p><strong>Name:</strong> {formData.shopName}</p>
-                      <p><strong>Address:</strong> {formData.address}</p>
+                      <p><strong>Address:</strong> {formData.businessAddress}</p>
                       <p><strong>Phone:</strong> {formData.phone}</p>
                       <p><strong>Email:</strong> {formData.email || 'Not provided'}</p>
                       <p><strong>Website:</strong> {formData.website || 'Not provided'}</p>
@@ -649,7 +676,7 @@ export default function MerchantRegistration() {
                 onClick={handleSubmit}
                 className="btn-primary"
               >
-                Complete Registration
+                Create Restaurant
               </button>
             )}
           </div>

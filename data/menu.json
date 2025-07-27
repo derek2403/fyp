@@ -1,0 +1,59 @@
+{
+  "menuItems": [
+    {
+      "id": "menu_1",
+      "merchantId": "merchant_1",
+      "name": "Margherita Pizza",
+      "price": 18,
+      "category": "main-course",
+      "description": "Classic tomato and mozzarella",
+      "sales": 45,
+      "available": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "menu_2",
+      "merchantId": "merchant_1",
+      "name": "Pepperoni Pizza",
+      "price": 22,
+      "category": "main-course",
+      "description": "Spicy pepperoni with cheese",
+      "sales": 38,
+      "available": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "menu_3",
+      "merchantId": "merchant_1",
+      "name": "Garlic Bread",
+      "price": 8,
+      "category": "appetizers",
+      "description": "Fresh baked garlic bread",
+      "sales": 67,
+      "available": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "menu_4",
+      "merchantId": "merchant_1",
+      "name": "Caesar Salad",
+      "price": 12,
+      "category": "appetizers",
+      "description": "Fresh romaine with caesar dressing",
+      "sales": 23,
+      "available": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "menu_5",
+      "merchantId": "merchant_1",
+      "name": "Tiramisu",
+      "price": 10,
+      "category": "desserts",
+      "description": "Classic Italian dessert",
+      "sales": 29,
+      "available": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}

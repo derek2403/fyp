@@ -1,0 +1,37 @@
+{
+  "restaurants": [
+    {
+      "id": "restaurant_1",
+      "name": "Italian Villa",
+      "cuisine": "Italian",
+      "rating": 4.5,
+      "distance": "0.8km",
+      "priceRange": "$$",
+      "image": "🍝",
+      "address": "456 Food Street, Singapore",
+      "phone": "+65 9876 5432"
+    },
+    {
+      "id": "restaurant_2",
+      "name": "Sakura Sushi",
+      "cuisine": "Japanese",
+      "rating": 4.3,
+      "distance": "1.2km",
+      "priceRange": "$$$",
+      "image": "🍣",
+      "address": "789 Sushi Lane, Singapore",
+      "phone": "+65 8765 4321"
+    },
+    {
+      "id": "restaurant_3",
+      "name": "Spice Garden",
+      "cuisine": "Thai",
+      "rating": 4.1,
+      "distance": "1.5km",
+      "priceRange": "$$",
+      "image": "🍜",
+      "address": "321 Spice Road, Singapore",
+      "phone": "+65 7654 3210"
+    }
+  ]
+}

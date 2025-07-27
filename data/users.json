@@ -1,0 +1,25 @@
+{
+  "users": [
+    {
+      "id": "user_1",
+      "address": "0x1234567890123456789012345678901234567890",
+      "username": "FoodLover123",
+      "email": "foodlover@example.com",
+      "location": "Singapore",
+      "preferences": ["italian", "japanese", "thai"],
+      "dietaryRestriction": "none",
+      "spiceLevel": "medium",
+      "budget": "moderate",
+      "totalReviews": 47,
+      "averageRating": 4.2,
+      "reliabilityScore": 85,
+      "nftBadges": [
+        { "id": 1, "name": "Review Master", "icon": "🏆", "description": "Posted 50+ reviews" },
+        { "id": 2, "name": "Spice Lover", "icon": "🌶️", "description": "Consistent spicy food reviews" },
+        { "id": 3, "name": "Authentic Reviewer", "icon": "✅", "description": "High reliability score" }
+      ],
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-15T00:00:00Z"
+    }
+  ]
+}
