@@ -6,7 +6,11 @@
       "username": "FoodLover123",
       "email": "foodlover@example.com",
       "location": "Singapore",
-      "preferences": ["italian", "japanese", "thai"],
+      "preferences": [
+        "italian",
+        "japanese",
+        "thai"
+      ],
       "dietaryRestriction": "none",
       "spiceLevel": "medium",
       "budget": "moderate",
@@ -14,12 +18,48 @@
       "averageRating": 4.2,
       "reliabilityScore": 85,
       "nftBadges": [
-        { "id": 1, "name": "Review Master", "icon": "🏆", "description": "Posted 50+ reviews" },
-        { "id": 2, "name": "Spice Lover", "icon": "🌶️", "description": "Consistent spicy food reviews" },
-        { "id": 3, "name": "Authentic Reviewer", "icon": "✅", "description": "High reliability score" }
+        {
+          "id": 1,
+          "name": "Review Master",
+          "icon": "🏆",
+          "description": "Posted 50+ reviews"
+        },
+        {
+          "id": 2,
+          "name": "Spice Lover",
+          "icon": "🌶️",
+          "description": "Consistent spicy food reviews"
+        },
+        {
+          "id": 3,
+          "name": "Authentic Reviewer",
+          "icon": "✅",
+          "description": "High reliability score"
+        }
       ],
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-15T00:00:00Z"
+    },
+    {
+      "id": "user_1753636593473",
+      "address": "0x41Db99b9A098Af28A06C0af238799c08076Af2f7",
+      "username": "derek2403",
+      "email": "derekliew0@gmail.com",
+      "selectedCategories": [
+        "italian",
+        "chinese",
+        "japanese"
+      ],
+      "dietaryRestriction": "none",
+      "spiceLevel": "hot",
+      "budget": "medium",
+      "location": "Kuala Lumpur",
+      "createdAt": "2025-07-27T17:16:33.473Z",
+      "updatedAt": "2025-07-27T17:16:33.473Z",
+      "reliabilityScore": 85,
+      "nftBadges": [],
+      "totalReviews": 0,
+      "averageRating": 0
     }
   ]
 }
