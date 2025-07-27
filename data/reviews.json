@@ -41,6 +41,27 @@
       "downvotes": 1,
       "confidenceScore": 87,
       "createdAt": "2024-01-13T00:00:00Z"
+    },
+    {
+      "id": "review_1753638733726",
+      "userId": "user_1753636593473",
+      "merchantId": "restaurant_1",
+      "username": "derek2403",
+      "restaurantName": "Italian Villa",
+      "rating": 4,
+      "review": "Its good overall ",
+      "foodQuality": 3,
+      "service": 5,
+      "atmosphere": 5,
+      "value": 5,
+      "orderId": "order_1753638733702",
+      "orderTotal": 40,
+      "date": "2025-07-27T17:52:13.702Z",
+      "createdAt": "2025-07-27T17:52:13.726Z",
+      "updatedAt": "2025-07-27T17:52:13.726Z",
+      "upvotes": 0,
+      "downvotes": 0,
+      "confidenceScore": 85
     }
   ]
 }
