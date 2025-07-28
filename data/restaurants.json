@@ -8,7 +8,7 @@
       "distance": "0.8km",
       "priceRange": "$$",
       "image": "🍝",
-      "address": "456 Food Street, Singapore",
+      "address": "456 Jalan Makanan, Kuala Lumpur, Malaysia",
       "phone": "+65 9876 5432"
     },
     {
@@ -19,7 +19,7 @@
       "distance": "1.2km",
       "priceRange": "$$$",
       "image": "🍣",
-      "address": "789 Sushi Lane, Singapore",
+      "address": "789 Jalan Sushi, Kuala Lumpur, Malaysia",
       "phone": "+65 8765 4321"
     },
     {
@@ -30,7 +30,7 @@
       "distance": "1.5km",
       "priceRange": "$$",
       "image": "🍜",
-      "address": "321 Spice Road, Singapore",
+      "address": "321 Jalan Rempah, Kuala Lumpur, Malaysia",
       "phone": "+65 7654 3210"
     }
   ]

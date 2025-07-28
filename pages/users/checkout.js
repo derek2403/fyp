@@ -1,23 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress } from "@thirdweb-dev/react";
+import { useAddress, useSDK } from "@thirdweb-dev/react";
 import { motion } from "framer-motion";
+import { ethers } from 'ethers';
 import { 
   ArrowLeft,
   CreditCard,
   CheckCircle,
   ShoppingCart,
-  User
+  User,
+  AlertCircle
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+// Exchange rate: 1 USD = 0.00026 ETH
+const USD_TO_ETH_RATE = 0.00026;
+
 export default function Checkout() {
   const router = useRouter();
   const address = useAddress();
+  const sdk = useSDK();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('crypto');
+  const [ethAmount, setEthAmount] = useState(0);
 
   useEffect(() => {
     if (!address) {
@@ -31,41 +38,94 @@ export default function Checkout() {
       return;
     }
     
-    setOrder(JSON.parse(orderData));
+    const orderObj = JSON.parse(orderData);
+    setOrder(orderObj);
+    
+    // Calculate ETH equivalent
+    const ethEquivalent = orderObj.total * USD_TO_ETH_RATE;
+    setEthAmount(ethEquivalent);
   }, [address, router]);
 
   const handlePayment = async () => {
-    if (!order) return;
+    if (!order || !sdk) return;
     
     setLoading(true);
     
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get the signer from SDK
+      const signer = await sdk.getSigner();
       
-      // Store order in localStorage for review page
-      localStorage.setItem('completedOrder', JSON.stringify({
-        ...order,
-        paymentMethod,
-        paymentStatus: 'completed',
-        paymentDate: new Date().toISOString()
-      }));
+      // Convert ETH amount to wei (smallest unit)
+      const ethAmountInWei = ethers.utils.parseEther(ethAmount.toFixed(6));
       
-      // Clear current order
-      localStorage.removeItem('currentOrder');
+      // Create transaction object
+      const tx = {
+        to: "0xf1a7b4b4B16fc24650D3dC96d5112b5c1F309092", // Restaurant wallet address
+        value: ethAmountInWei,
+        gasLimit: 21000 // Standard gas limit for ETH transfer
+      };
+
+      console.log('Transaction object:', tx);
+      console.log('ETH amount in wei:', ethAmountInWei);
+
+      // Send transaction
+      const transaction = await signer.sendTransaction(tx);
       
-      toast.success('Payment successful! Redirecting to review...');
+      toast.success('Transaction sent! Waiting for confirmation...');
+      console.log('Transaction hash:', transaction.hash);
       
-      setTimeout(() => {
-        router.push('/users/review');
-      }, 1500);
+      // Wait for transaction confirmation
+      const receipt = await transaction.wait();
+      console.log('Transaction receipt:', receipt);
+      
+      if (receipt.status === 1) {
+        // Transaction successful
+        toast.success('Payment successful! Transaction confirmed.');
+        
+        // Store order in localStorage for review page
+        localStorage.setItem('completedOrder', JSON.stringify({
+          ...order,
+          paymentMethod,
+          paymentStatus: 'completed',
+          paymentDate: new Date().toISOString(),
+          transactionHash: receipt.transactionHash,
+          ethAmount: ethAmount,
+          gasUsed: receipt.gasUsed?.toString() || '0',
+          gasPrice: receipt.gasPrice?.toString() || '0'
+        }));
+        
+        // Clear current order
+        localStorage.removeItem('currentOrder');
+        
+        setTimeout(() => {
+          router.push('/users/review');
+        }, 2000);
+      } else {
+        throw new Error('Transaction failed');
+      }
       
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Payment failed. Please try again.');
+      
+      // Handle specific error types
+      if (error.code === 4001) {
+        toast.error('Transaction was rejected by user');
+      } else if (error.code === 'INSUFFICIENT_FUNDS' || error.message?.includes('insufficient funds')) {
+        toast.error('Insufficient funds in wallet');
+      } else if (error.message?.includes('user rejected')) {
+        toast.error('Transaction was rejected by user');
+      } else if (error.message?.includes('network')) {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error(`Payment failed: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatEthAmount = (amount) => {
+    return parseFloat(amount).toFixed(6);
   };
 
   if (!address) {
@@ -173,11 +233,11 @@ export default function Checkout() {
                   />
                   <div className="flex items-center space-x-2">
                     <CreditCard className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium">Crypto Payment</span>
+                    <span className="font-medium">Crypto Payment (ETH)</span>
                   </div>
                 </label>
                 
-                <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 opacity-50">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -185,6 +245,7 @@ export default function Checkout() {
                     checked={paymentMethod === 'fiat'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="text-blue-600"
+                    disabled
                   />
                   <div className="flex items-center space-x-2">
                     <CreditCard className="w-5 h-5 text-green-600" />
@@ -203,14 +264,22 @@ export default function Checkout() {
               {paymentMethod === 'crypto' ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-2">Crypto Payment</h3>
+                    <h3 className="font-semibold text-blue-900 mb-2">ETH Payment</h3>
                     <p className="text-sm text-blue-800 mb-3">
-                      Pay with your connected wallet using cryptocurrency.
+                      Pay with ETH on Base Sepolia testnet.
                     </p>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Amount:</span>
+                        <span className="text-gray-600">USD Amount:</span>
                         <span className="font-medium">${order.total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Exchange Rate:</span>
+                        <span className="font-medium">1 USD = {USD_TO_ETH_RATE} ETH</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">ETH Amount:</span>
+                        <span className="font-medium font-mono">{formatEthAmount(ethAmount)} ETH</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Wallet:</span>
@@ -218,19 +287,25 @@ export default function Checkout() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Network:</span>
-                        <span className="font-medium">Polygon (Mumbai)</span>
+                        <span className="font-medium">Base Sepolia</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="p-4 bg-yellow-50 rounded-lg">
-                    <h4 className="font-semibold text-yellow-900 mb-2">Important Notes</h4>
-                    <ul className="text-sm text-yellow-800 space-y-1">
-                      <li>• Ensure you have sufficient funds in your wallet</li>
-                      <li>• Transaction fees may apply</li>
-                      <li>• Payment is processed on the blockchain</li>
-                      <li>• Orders are non-refundable</li>
-                    </ul>
+                    <div className="flex items-start space-x-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-yellow-900 mb-2">Important Notes</h4>
+                        <ul className="text-sm text-yellow-800 space-y-1">
+                          <li>• Ensure you have sufficient ETH in your wallet</li>
+                          <li>• Gas fees will be added to the total amount</li>
+                          <li>• Payment is processed on Base Sepolia testnet</li>
+                          <li>• Orders are non-refundable</li>
+                          <li>• You'll need to sign the transaction in your wallet</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -258,7 +333,7 @@ export default function Checkout() {
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    <span>Complete Payment</span>
+                    <span>Pay {formatEthAmount(ethAmount)} ETH</span>
                   </>
                 )}
               </button>
