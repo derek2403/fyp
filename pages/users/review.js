@@ -1,30 +1,70 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress } from "@thirdweb-dev/react";
+import { useAddress, useSDK } from "@thirdweb-dev/react";
+import { ethers } from 'ethers';
 import { motion } from "framer-motion";
 import { 
   ArrowLeft,
   Star,
   Send,
-  User,
-  CheckCircle
+  User
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+// Smart contract configuration
+const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
+const CONTRACT_ABI = [
+  {
+    "inputs": [
+      {
+        "components": [
+          {"internalType": "string", "name": "id", "type": "string"},
+          {"internalType": "string", "name": "userId", "type": "string"},
+          {"internalType": "string", "name": "merchantId", "type": "string"},
+          {"internalType": "string", "name": "username", "type": "string"},
+          {"internalType": "string", "name": "restaurantName", "type": "string"},
+          {"internalType": "uint8", "name": "rating", "type": "uint8"},
+          {"internalType": "string", "name": "reviewText", "type": "string"},
+          {"internalType": "string", "name": "date", "type": "string"},
+          {"internalType": "uint256", "name": "upvotes", "type": "uint256"},
+          {"internalType": "uint256", "name": "downvotes", "type": "uint256"},
+          {"internalType": "uint256", "name": "confidenceScore", "type": "uint256"},
+          {"internalType": "string", "name": "createdAt", "type": "string"},
+          {"internalType": "uint8", "name": "foodQuality", "type": "uint8"},
+          {"internalType": "uint8", "name": "service", "type": "uint8"},
+          {"internalType": "uint8", "name": "atmosphere", "type": "uint8"},
+          {"internalType": "uint8", "name": "value", "type": "uint8"},
+          {"internalType": "string", "name": "orderId", "type": "string"},
+          {"internalType": "uint256", "name": "orderTotal", "type": "uint256"},
+          {"internalType": "string", "name": "updatedAt", "type": "string"}
+        ],
+        "internalType": "struct ReviewContract.ReviewInput",
+        "name": "data",
+        "type": "tuple"
+      }
+    ],
+    "name": "addReview",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
 export default function Review() {
   const router = useRouter();
   const address = useAddress();
+  const sdk = useSDK();
   const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [review, setReview] = useState({
-    rating: 5,
+    rating: 0,
     review: '',
-    foodQuality: 5,
-    service: 5,
-    atmosphere: 5,
-    value: 5
+    foodQuality: 0,
+    service: 0,
+    atmosphere: 0,
+    value: 0
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!address) {
@@ -48,57 +88,69 @@ export default function Review() {
     }));
   };
 
-  const handleSubmit = async () => {
-    if (!order || !review.review.trim()) {
-      toast.error('Please write a review before submitting');
-      return;
-    }
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!order || !sdk) return;
+    
     setLoading(true);
 
     try {
-      // Get user data
-      const userResponse = await fetch(`/api/users?address=${address}`);
-      const userData = await userResponse.json();
+      // Get the signer from SDK
+      const signer = await sdk.getSigner();
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      const reviewData = {
-        userId: userData.id,
-        merchantId: order.restaurantId,
-        username: userData.username,
+      // Prepare review data for smart contract
+      const reviewInput = {
+        id: `review_${Date.now()}`,
+        userId: order.userId || `user_${Date.now()}`,
+        merchantId: order.merchantId || order.restaurantId || `restaurant_${Date.now()}`,
+        username: order.username || "Anonymous",
         restaurantName: order.restaurantName,
         rating: review.rating,
-        review: review.review,
+        reviewText: review.review,
+        date: new Date().toISOString(),
+        upvotes: 0,
+        downvotes: 0,
+        confidenceScore: 85,
+        createdAt: new Date().toISOString(),
         foodQuality: review.foodQuality,
         service: review.service,
         atmosphere: review.atmosphere,
         value: review.value,
         orderId: order.orderId || `order_${Date.now()}`,
         orderTotal: order.total,
-        date: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
 
-      const response = await fetch('/api/reviews/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewData)
-      });
-
-      if (response.ok) {
+      // Call smart contract to add review
+      const tx = await contract.addReview(reviewInput);
+      
+      toast.success('Review submitted! Waiting for confirmation...');
+      
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+      
+      if (receipt.status === 1) {
+        toast.success('Review submitted successfully to blockchain!');
+        console.log('Review submitted to blockchain:', receipt.hash);
+        
         // Clear completed order
         localStorage.removeItem('completedOrder');
         
-        toast.success('Review submitted successfully!');
-        
         setTimeout(() => {
-          router.push('/users/menu');
+          router.push('/dashboard/user');
         }, 2000);
       } else {
-        throw new Error('Failed to submit review');
+        throw new Error('Transaction failed');
       }
+      
     } catch (error) {
-      console.error('Review submission error:', error);
-      toast.error('Failed to submit review. Please try again.');
+      console.error('Error submitting review:', error);
+      if (error.code === 4001) {
+        toast.error('Transaction was rejected by user');
+      } else {
+        toast.error(`Failed to submit review: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -109,7 +161,7 @@ export default function Review() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Please Connect Your Wallet</h2>
-          <p className="text-gray-600 mb-6">Connect your wallet to write a review.</p>
+          <p className="text-gray-600 mb-6">Connect your wallet to submit a review.</p>
           <Link href="/users/login" className="btn-primary">
             Go to Login
           </Link>
@@ -123,7 +175,7 @@ export default function Review() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">No Order Found</h2>
-          <p className="text-gray-600 mb-6">Please complete a purchase to write a review.</p>
+          <p className="text-gray-600 mb-6">Please complete an order first.</p>
           <Link href="/users/menu" className="btn-primary">
             Back to Restaurants
           </Link>
@@ -165,18 +217,17 @@ export default function Review() {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Order Summary */}
           <div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Order Summary</h2>
               
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 mb-2">{order.restaurantName}</h3>
                 <p className="text-sm text-gray-600">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
-                <p className="text-sm text-gray-600">Payment: {order.paymentMethod === 'crypto' ? 'Crypto' : 'Fiat'}</p>
               </div>
               
-              <div className="space-y-2 mb-4">
+              <div className="space-y-3 mb-4">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-1">
+                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100">
                     <div>
                       <p className="font-medium text-gray-900">{item.name}</p>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
@@ -189,19 +240,9 @@ export default function Review() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900">Total:</span>
-                  <span className="text-xl font-bold text-green-600">${order.total.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</span>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-green-900">Payment Successful</h3>
-              </div>
-              <p className="text-sm text-green-800">
-                Your order has been completed successfully. Now share your experience to help other customers!
-              </p>
             </div>
           </div>
 
@@ -210,116 +251,92 @@ export default function Review() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Your Review</h2>
               
-              {/* Overall Rating */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Overall Rating *
-                </label>
-                <div className="flex items-center space-x-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => handleRatingChange('rating', star)}
-                      className="focus:outline-none"
-                    >
-                      <Star
-                        className={`w-8 h-8 ${
-                          star <= review.rating
-                            ? 'text-yellow-400 fill-current'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  <span className="ml-2 text-sm text-gray-600">
-                    {review.rating} out of 5
-                  </span>
-                </div>
-              </div>
-
-              {/* Detailed Ratings */}
-              <div className="space-y-4 mb-6">
-                <h3 className="font-medium text-gray-900">Rate by Category</h3>
-                
-                {[
-                  { key: 'foodQuality', label: 'Food Quality' },
-                  { key: 'service', label: 'Service' },
-                  { key: 'atmosphere', label: 'Atmosphere' },
-                  { key: 'value', label: 'Value for Money' }
-                ].map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {label}
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          onClick={() => handleRatingChange(key, star)}
-                          className="focus:outline-none"
-                        >
-                          <Star
-                            className={`w-6 h-6 ${
-                              star <= review[key]
-                                ? 'text-yellow-400 fill-current'
-                                : 'text-gray-300'
-                            }`}
-                          />
-                        </button>
-                      ))}
-                      <span className="ml-2 text-sm text-gray-600">
-                        {review[key]} out of 5
-                      </span>
-                    </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Overall Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Overall Rating
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => handleRatingChange('rating', star)}
+                        className={`p-1 rounded ${
+                          review.rating >= star ? 'text-yellow-400' : 'text-gray-300'
+                        } hover:text-yellow-400 transition-colors`}
+                      >
+                        <Star className="w-6 h-6 fill-current" />
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
 
-              {/* Review Text */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Review *
-                </label>
-                <textarea
-                  value={review.review}
-                  onChange={(e) => setReview(prev => ({ ...prev, review: e.target.value }))}
-                  rows="6"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Share your experience with this restaurant. What did you like? What could be improved?"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  {review.review.length}/500 characters
-                </p>
-              </div>
+                {/* Category Ratings */}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { key: 'foodQuality', label: 'Food Quality' },
+                    { key: 'service', label: 'Service' },
+                    { key: 'atmosphere', label: 'Atmosphere' },
+                    { key: 'value', label: 'Value' }
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {label}
+                      </label>
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => handleRatingChange(key, star)}
+                            className={`p-1 rounded ${
+                              review[key] >= star ? 'text-yellow-400' : 'text-gray-300'
+                            } hover:text-yellow-400 transition-colors`}
+                          >
+                            <Star className="w-4 h-4 fill-current" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-              {/* Submit Button */}
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !review.review.trim()}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>Submitting Review...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    <span>Submit Review</span>
-                  </>
-                )}
-              </button>
-            </div>
+                {/* Review Text */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Your Review
+                  </label>
+                  <textarea
+                    value={review.review}
+                    onChange={(e) => setReview(prev => ({ ...prev, review: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Share your experience..."
+                    required
+                  />
+                </div>
 
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">Review Guidelines</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Be honest and constructive in your feedback</li>
-                <li>• Focus on your personal experience</li>
-                <li>• Avoid offensive or inappropriate language</li>
-                <li>• Your review helps other customers make informed decisions</li>
-              </ul>
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading || !review.rating || !review.review.trim()}
+                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span>Submitting Review...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      <span>Submit Review</span>
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
           </div>
         </div>

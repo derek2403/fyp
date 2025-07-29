@@ -82,9 +82,17 @@ export default function Checkout() {
         // Transaction successful
         toast.success('Payment successful! Transaction confirmed.');
         
-        // Store order in localStorage for review page
+        // Get user data
+        const userResponse = await fetch(`/api/users?address=${address}`);
+        const userData = await userResponse.json();
+        
+        // Store order in localStorage for review page with all required data
         localStorage.setItem('completedOrder', JSON.stringify({
           ...order,
+          userId: userData.id,
+          merchantId: order.restaurantId,
+          username: userData.username,
+          orderId: `order_${Date.now()}`,
           paymentMethod,
           paymentStatus: 'completed',
           paymentDate: new Date().toISOString(),
