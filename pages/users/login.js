@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { ConnectWallet, useAddress } from "@thirdweb-dev/react";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -14,6 +17,11 @@ import {
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+
+// Create a shared Thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
 
 const foodCategories = [
   { id: 'italian', name: 'Italian', icon: '🍝' },
@@ -54,7 +62,9 @@ const spiceLevels = [
 
 export default function UserLogin() {
   const router = useRouter();
-  const address = useAddress();
+  const account = useActiveAccount();
+  const address = account?.address;
+  const hasRedirectedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [isExistingUser, setIsExistingUser] = useState(false);
   const [formData, setFormData] = useState({
@@ -73,7 +83,12 @@ export default function UserLogin() {
     }
   }, [address]);
 
+  useEffect(() => {
+    console.log('Address status:', address ? 'Connected' : 'Not connected');
+  }, [address]);
+
   const checkUserExists = async () => {
+    if (hasRedirectedRef.current) return;
     try {
       const response = await fetch('/api/users/check', {
         method: 'POST',
@@ -85,10 +100,18 @@ export default function UserLogin() {
       if (data.exists) {
         setIsExistingUser(true);
         setFormData(data.user);
-        toast.success('Welcome back! Redirecting to menu...');
-        setTimeout(() => {
-          router.push('/users/menu');
-        }, 1500);
+        if (!hasRedirectedRef.current) {
+          hasRedirectedRef.current = true;
+          toast.success('Welcome back! Redirecting to menu...');
+          // Prefer replace to avoid back navigation
+          router.replace('/users/menu');
+          // Hard fallback in case SPA navigation is blocked
+          setTimeout(() => {
+            if (window.location.pathname !== '/users/menu') {
+              window.location.href = '/users/menu';
+            }
+          }, 500);
+        }
       } else {
         setIsExistingUser(false);
         setStep(2);
@@ -118,7 +141,7 @@ export default function UserLogin() {
 
   const handleSubmit = async () => {
     if (!address) {
-      toast.error('Please connect your wallet first');
+      toast.error('Please connect your wallet or Google account first');
       return;
     }
 
@@ -154,7 +177,7 @@ export default function UserLogin() {
   };
 
   const canProceed = () => {
-    if (step === 1) return address;
+    if (step === 1) return !!address;
     if (step === 2) return formData.username && formData.email;
     if (step === 3) return formData.selectedCategories.length > 0;
     return true;
@@ -204,7 +227,7 @@ export default function UserLogin() {
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Step {step} of 4: {
-                step === 1 ? 'Connect Wallet' :
+                step === 1 ? 'Connect Account' :
                 step === 2 ? 'Basic Information' :
                 step === 3 ? 'Food Preferences' :
                 'Review & Complete'
@@ -225,12 +248,31 @@ export default function UserLogin() {
             <div className="text-center">
               <Shield className="w-16 h-16 text-blue-500 mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Connect Your Wallet
+                Connect Your Account
               </h2>
               <p className="text-gray-600 mb-8">
-                Connect your blockchain wallet to get started. This ensures secure and authentic reviews.
+                Use the button below to connect with MetaMask or sign in with Google.
               </p>
-              <ConnectWallet className="btn-primary text-lg px-8 py-3" />
+
+              <div className="flex justify-center">
+                <ConnectButton
+                  client={client}
+                  chains={[baseSepolia]}
+                  connectModal={{ size: "wide" }}
+                  wallets={[
+                    createWallet("io.metamask"),
+                    createWallet("com.coinbase.wallet"),
+                    inAppWallet({
+                      auth: {
+                        mode: "popup",
+                        options: ["google", "email", "passkey"],
+                        redirectUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+                      },
+                    }),
+                  ]}
+                />
+              </div>
+
               <div className="mt-6 text-sm text-gray-500">
                 <p>Your wallet address will be used to:</p>
                 <ul className="mt-2 space-y-1">
@@ -404,7 +446,7 @@ export default function UserLogin() {
                       <p><strong>Username:</strong> {formData.username}</p>
                       <p><strong>Email:</strong> {formData.email}</p>
                       <p><strong>Location:</strong> {formData.location || 'Not specified'}</p>
-                      <p><strong>Wallet:</strong> {address?.slice(0, 6)}...{address?.slice(-4)}</p>
+                      <p><strong>Wallet:</strong> {address ? `${address.slice(0,6)}...${address.slice(-4)}` : '...'}</p>
                     </div>
                   </div>
                   <div>

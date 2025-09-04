@@ -1,10 +1,12 @@
-import { ThirdwebProvider } from "@thirdweb-dev/react";
-import { Ethereum, Polygon } from "@thirdweb-dev/chains";
+import { ThirdwebProvider as ThirdwebProviderV4 } from "@thirdweb-dev/react";
+import { ThirdwebProvider as ThirdwebProviderV5 } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 import { Toaster } from "react-hot-toast";
 import "../styles/globals.css";
 
-// Define Base Sepolia chain configuration
-const BaseSepolia = {
+// Define Base Sepolia chain configuration for v4 provider
+const BaseSepoliaV4 = {
   chainId: 84532,
   name: "Base Sepolia",
   nativeCurrency: {
@@ -22,16 +24,19 @@ const BaseSepolia = {
   testnet: true,
 };
 
+// Create Thirdweb v5 client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
+
 function MyApp({ Component, pageProps }) {
   return (
-    <ThirdwebProvider 
-      activeChain={BaseSepolia}
-      supportedChains={[Ethereum, Polygon, BaseSepolia]}
-      clientId="your-thirdweb-client-id"
-    >
-      <Component {...pageProps} />
-      <Toaster position="top-right" />
-    </ThirdwebProvider>
+    <ThirdwebProviderV5 client={client} activeChain={baseSepolia}>
+      <ThirdwebProviderV4 activeChain={BaseSepoliaV4} clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id"}>
+        <Component {...pageProps} />
+        <Toaster position="top-right" />
+      </ThirdwebProviderV4>
+    </ThirdwebProviderV5>
   );
 }
 

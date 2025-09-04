@@ -60,6 +60,27 @@
       "nftBadges": [],
       "totalReviews": 0,
       "averageRating": 0
+    },
+    {
+      "id": "user_1756969626230",
+      "address": "0x6F5f06aC116b29252F880a83Cba11a6Eea85Cc14",
+      "username": "derek",
+      "email": "derekliew0@gmail.com",
+      "selectedCategories": [
+        "italian",
+        "japanese",
+        "chinese"
+      ],
+      "dietaryRestriction": "none",
+      "spiceLevel": "medium",
+      "budget": "medium",
+      "location": "Singapore",
+      "createdAt": "2025-09-04T07:07:06.230Z",
+      "updatedAt": "2025-09-04T07:07:06.230Z",
+      "reliabilityScore": 85,
+      "nftBadges": [],
+      "totalReviews": 0,
+      "averageRating": 0
     }
   ]
 }

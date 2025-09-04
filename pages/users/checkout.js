@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress, useSDK } from "@thirdweb-dev/react";
+import { useActiveAccount } from "thirdweb/react";
+import { baseSepolia } from "thirdweb/chains";
+import { prepareTransaction, sendAndConfirmTransaction, createThirdwebClient } from "thirdweb";
+import { toWei } from "thirdweb/utils";
 import { motion } from "framer-motion";
-import { ethers } from 'ethers';
 import { 
   ArrowLeft,
   CreditCard,
@@ -17,10 +19,15 @@ import toast from 'react-hot-toast';
 // Exchange rate: 1 USD = 0.00026 ETH
 const USD_TO_ETH_RATE = 0.00026;
 
+// Thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
+
 export default function Checkout() {
   const router = useRouter();
-  const address = useAddress();
-  const sdk = useSDK();
+  const account = useActiveAccount();
+  const address = account?.address;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('crypto');
@@ -47,86 +54,60 @@ export default function Checkout() {
   }, [address, router]);
 
   const handlePayment = async () => {
-    if (!order || !sdk) return;
+    if (!order || !account) {
+      toast.error('No connected wallet. Please connect first.');
+      return;
+    }
     
     setLoading(true);
     
     try {
-      // Get the signer from SDK
-      const signer = await sdk.getSigner();
-      
-      // Convert ETH amount to wei (smallest unit)
-      const ethAmountInWei = ethers.utils.parseEther(ethAmount.toFixed(6));
-      
-      // Create transaction object
-      const tx = {
-        to: "0xf1a7b4b4B16fc24650D3dC96d5112b5c1F309092", // Restaurant wallet address
-        value: ethAmountInWei,
-        gasLimit: 21000 // Standard gas limit for ETH transfer
-      };
+      // Prepare native transfer on Base Sepolia per Thirdweb v5 docs
+      const transaction = prepareTransaction({
+        to: "0xf1a7b4b4B16fc24650D3dC96d5112b5c1F309092",
+        value: toWei(ethAmount.toFixed(6)),
+        chain: baseSepolia,
+        client,
+      });
 
-      console.log('Transaction object:', tx);
-      console.log('ETH amount in wei:', ethAmountInWei);
+      const receipt = await sendAndConfirmTransaction({
+        transaction,
+        account,
+      });
 
-      // Send transaction
-      const transaction = await signer.sendTransaction(tx);
+      const txHash = receipt.transactionHash;
+      toast.success('Payment successful!');
       
-      toast.success('Transaction sent! Waiting for confirmation...');
-      console.log('Transaction hash:', transaction.hash);
+      // Get user data
+      const userResponse = await fetch(`/api/users?address=${address}`);
+      const userData = await userResponse.json();
       
-      // Wait for transaction confirmation
-      const receipt = await transaction.wait();
-      console.log('Transaction receipt:', receipt);
+      // Store order in localStorage for review page with all required data
+      localStorage.setItem('completedOrder', JSON.stringify({
+        ...order,
+        userId: userData.id,
+        merchantId: order.restaurantId,
+        username: userData.username,
+        orderId: `order_${Date.now()}`,
+        paymentMethod,
+        paymentStatus: 'completed',
+        paymentDate: new Date().toISOString(),
+        transactionHash: txHash,
+        ethAmount: ethAmount,
+        gasUsed: '0',
+        gasPrice: '0'
+      }));
       
-      if (receipt.status === 1) {
-        // Transaction successful
-        toast.success('Payment successful! Transaction confirmed.');
-        
-        // Get user data
-        const userResponse = await fetch(`/api/users?address=${address}`);
-        const userData = await userResponse.json();
-        
-        // Store order in localStorage for review page with all required data
-        localStorage.setItem('completedOrder', JSON.stringify({
-          ...order,
-          userId: userData.id,
-          merchantId: order.restaurantId,
-          username: userData.username,
-          orderId: `order_${Date.now()}`,
-          paymentMethod,
-          paymentStatus: 'completed',
-          paymentDate: new Date().toISOString(),
-          transactionHash: receipt.transactionHash,
-          ethAmount: ethAmount,
-          gasUsed: receipt.gasUsed?.toString() || '0',
-          gasPrice: receipt.gasPrice?.toString() || '0'
-        }));
-        
-        // Clear current order
-        localStorage.removeItem('currentOrder');
-        
-        setTimeout(() => {
-          router.push('/users/review');
-        }, 2000);
-      } else {
-        throw new Error('Transaction failed');
-      }
+      // Clear current order
+      localStorage.removeItem('currentOrder');
+      
+      setTimeout(() => {
+        router.push('/users/review');
+      }, 800);
       
     } catch (error) {
       console.error('Payment error:', error);
-      
-      // Handle specific error types
-      if (error.code === 4001) {
-        toast.error('Transaction was rejected by user');
-      } else if (error.code === 'INSUFFICIENT_FUNDS' || error.message?.includes('insufficient funds')) {
-        toast.error('Insufficient funds in wallet');
-      } else if (error.message?.includes('user rejected')) {
-        toast.error('Transaction was rejected by user');
-      } else if (error.message?.includes('network')) {
-        toast.error('Network error. Please check your connection.');
-      } else {
-        toast.error(`Payment failed: ${error.message || 'Unknown error'}`);
-      }
+      toast.error(`Payment failed: ${error?.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -152,7 +133,7 @@ export default function Checkout() {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items_center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">No Order Found</h2>
           <p className="text-gray-600 mb-6">Please add items to your cart first.</p>
@@ -198,7 +179,7 @@ export default function Checkout() {
           {/* Order Summary */}
           <div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Order Summary</h2>
+              <h2 className="text-xl font-bold text_gray-900 mb-4">Order Summary</h2>
               
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 mb-2">{order.restaurantName}</h3>
@@ -207,7 +188,7 @@ export default function Checkout() {
               
               <div className="space-y-3 mb-4">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <div key={item.id} className="flex justify_between items-center py-2 border-b border-gray-100">
                     <div>
                       <p className="font-medium text-gray-900">{item.name}</p>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
@@ -219,7 +200,7 @@ export default function Checkout() {
               
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-gray-900">Total:</span>
+                  <span className="text-lg font-bold text_gray-900">Total:</span>
                   <span className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</span>
                 </div>
               </div>
@@ -227,7 +208,7 @@ export default function Checkout() {
 
             {/* Payment Method */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Payment Method</h2>
+              <h2 className="text-xl font-bold text_gray-900 mb-4">Payment Method</h2>
               
               <div className="space-y-3">
                 <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
@@ -267,7 +248,7 @@ export default function Checkout() {
           {/* Payment Details */}
           <div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Payment Details</h2>
+              <h2 className="text-xl font-bold text_gray-900 mb-4">Payment Details</h2>
               
               {paymentMethod === 'crypto' ? (
                 <div className="space-y-4">
@@ -277,24 +258,24 @@ export default function Checkout() {
                       Pay with ETH on Base Sepolia testnet.
                     </p>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">USD Amount:</span>
+                      <div className="flex justify_between">
+                        <span className="text_gray-600">USD Amount:</span>
                         <span className="font-medium">${order.total.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Exchange Rate:</span>
+                      <div className="flex justify_between">
+                        <span className="text_gray-600">Exchange Rate:</span>
                         <span className="font-medium">1 USD = {USD_TO_ETH_RATE} ETH</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">ETH Amount:</span>
+                      <div className="flex justify_between">
+                        <span className="text_gray-600">ETH Amount:</span>
                         <span className="font-medium font-mono">{formatEthAmount(ethAmount)} ETH</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Wallet:</span>
+                      <div className="flex justify_between">
+                        <span className="text_gray-600">Wallet:</span>
                         <span className="font-mono text-xs">{address}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Network:</span>
+                      <div className="flex justify_between">
+                        <span className="text_gray-600">Network:</span>
                         <span className="font-medium">Base Sepolia</span>
                       </div>
                     </div>
@@ -318,7 +299,7 @@ export default function Checkout() {
                 </div>
               ) : (
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">Fiat Payment</h3>
+                  <h3 className="font-semibold text_gray-900 mb-2">Fiat Payment</h3>
                   <p className="text-sm text-gray-600">
                     Traditional payment methods will be available soon. For now, please use crypto payment.
                   </p>

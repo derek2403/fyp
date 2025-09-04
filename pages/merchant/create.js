@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ConnectWallet, useAddress } from "@thirdweb-dev/react";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -44,9 +47,15 @@ const priceRanges = [
   { id: 'luxury', name: 'Luxury', range: '$$$$', description: '$50+ per person' }
 ];
 
+// Thirdweb client (v5)
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
+
 export default function MerchantCreate() {
   const router = useRouter();
-  const address = useAddress();
+  const account = useActiveAccount();
+  const address = account?.address;
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     shopName: '',
@@ -96,7 +105,7 @@ export default function MerchantCreate() {
         toast.success('Welcome back! Redirecting to your dashboard...');
         setTimeout(() => {
           router.push('/merchant/dashboard');
-        }, 1500);
+        }, 800);
       }
     } catch (error) {
       console.error('Error checking merchant:', error);
@@ -204,7 +213,7 @@ export default function MerchantCreate() {
   };
 
   const canProceed = () => {
-    if (step === 1) return address;
+    if (step === 1) return !!address;
     if (step === 2) return formData.shopName && formData.businessAddress && formData.phone;
     if (step === 3) return formData.selectedCuisines.length > 0;
     if (step === 4) return formData.menu.length > 0;
@@ -255,7 +264,7 @@ export default function MerchantCreate() {
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Step {step} of 5: {
-                step === 1 ? 'Connect Wallet' :
+                step === 1 ? 'Connect Account' :
                 step === 2 ? 'Restaurant Details' :
                 step === 3 ? 'Cuisine & Hours' :
                 step === 4 ? 'Menu Setup' :
@@ -277,12 +286,31 @@ export default function MerchantCreate() {
             <div className="text-center">
               <Store className="w-16 h-16 text-green-500 mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Connect Your Wallet
+                Connect Your Account
               </h2>
               <p className="text-gray-600 mb-8">
-                Connect your blockchain wallet to register your restaurant. This ensures secure transactions and authentic reviews.
+                Use the button below to connect with MetaMask or sign in with Google.
               </p>
-              <ConnectWallet className="btn-primary text-lg px-8 py-3" />
+
+              <div className="flex justify-center">
+                <ConnectButton
+                  client={client}
+                  chains={[baseSepolia]}
+                  connectModal={{ size: "wide" }}
+                  wallets={[
+                    createWallet("io.metamask"),
+                    createWallet("com.coinbase.wallet"),
+                    inAppWallet({
+                      auth: {
+                        mode: "popup",
+                        options: ["google", "email", "passkey"],
+                        redirectUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+                      },
+                    }),
+                  ]}
+                />
+              </div>
+
               <div className="mt-6 text-sm text-gray-500">
                 <p>Your wallet address will be used to:</p>
                 <ul className="mt-2 space-y-1">
@@ -369,7 +397,7 @@ export default function MerchantCreate() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font_medium text-gray-700 mb-2">
                     Website (Optional)
                   </label>
                   <div className="relative">

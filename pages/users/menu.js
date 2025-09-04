@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress } from "@thirdweb-dev/react";
+import { useActiveAccount } from "thirdweb/react";
 import { motion } from "framer-motion";
 import { 
   Heart, 
@@ -17,7 +17,8 @@ import toast from 'react-hot-toast';
 
 export default function UserMenu() {
   const router = useRouter();
-  const address = useAddress();
+  const account = useActiveAccount();
+  const address = account?.address;
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
