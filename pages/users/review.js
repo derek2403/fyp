@@ -1,60 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress, useSDK } from "@thirdweb-dev/react";
-import { ethers } from 'ethers';
+import { useActiveAccount } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
+import { prepareContractCall, sendAndConfirmTransaction } from "thirdweb";
+import { getContract } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
-  ArrowLeft,
   Star,
-  Send,
-  User
+  Send
 } from "lucide-react";
 import Link from 'next/link';
+import Header from '../../components/Header';
 import toast from 'react-hot-toast';
 
 // Smart contract configuration
 const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
-const CONTRACT_ABI = [
-  {
-    "inputs": [
-      {
-        "components": [
-          {"internalType": "string", "name": "id", "type": "string"},
-          {"internalType": "string", "name": "userId", "type": "string"},
-          {"internalType": "string", "name": "merchantId", "type": "string"},
-          {"internalType": "string", "name": "username", "type": "string"},
-          {"internalType": "string", "name": "restaurantName", "type": "string"},
-          {"internalType": "uint8", "name": "rating", "type": "uint8"},
-          {"internalType": "string", "name": "reviewText", "type": "string"},
-          {"internalType": "string", "name": "date", "type": "string"},
-          {"internalType": "uint256", "name": "upvotes", "type": "uint256"},
-          {"internalType": "uint256", "name": "downvotes", "type": "uint256"},
-          {"internalType": "uint256", "name": "confidenceScore", "type": "uint256"},
-          {"internalType": "string", "name": "createdAt", "type": "string"},
-          {"internalType": "uint8", "name": "foodQuality", "type": "uint8"},
-          {"internalType": "uint8", "name": "service", "type": "uint8"},
-          {"internalType": "uint8", "name": "atmosphere", "type": "uint8"},
-          {"internalType": "uint8", "name": "value", "type": "uint8"},
-          {"internalType": "string", "name": "orderId", "type": "string"},
-          {"internalType": "uint256", "name": "orderTotal", "type": "uint256"},
-          {"internalType": "string", "name": "updatedAt", "type": "string"}
-        ],
-        "internalType": "struct ReviewContract.ReviewInput",
-        "name": "data",
-        "type": "tuple"
-      }
-    ],
-    "name": "addReview",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+
+// Create thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
 
 export default function Review() {
   const router = useRouter();
-  const address = useAddress();
-  const sdk = useSDK();
+  const account = useActiveAccount();
   const [order, setOrder] = useState(null);
   const [review, setReview] = useState({
     rating: 0,
@@ -67,19 +37,11 @@ export default function Review() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!address) {
-      router.push('/users/login');
-      return;
-    }
-    
     const orderData = localStorage.getItem('completedOrder');
-    if (!orderData) {
-      router.push('/users/menu');
-      return;
+    if (orderData) {
+      setOrder(JSON.parse(orderData));
     }
-    
-    setOrder(JSON.parse(orderData));
-  }, [address, router]);
+  }, []);
 
   const handleRatingChange = (category, value) => {
     setReview(prev => ({
@@ -90,14 +52,17 @@ export default function Review() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!order || !sdk) return;
+    if (!order || !account) return;
     
     setLoading(true);
 
     try {
-      // Get the signer from SDK
-      const signer = await sdk.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      // Get the contract instance
+      const contract = getContract({
+        client,
+        chain: baseSepolia,
+        address: CONTRACT_ADDRESS,
+      });
 
       // Prepare review data for smart contract
       const reviewInput = {
@@ -118,35 +83,38 @@ export default function Review() {
         atmosphere: review.atmosphere,
         value: review.value,
         orderId: order.orderId || `order_${Date.now()}`,
-        orderTotal: order.total,
+        orderTotal: Math.floor(order.total * 100), // Convert to wei-like format
         updatedAt: new Date().toISOString()
       };
 
-      // Call smart contract to add review
-      const tx = await contract.addReview(reviewInput);
-      
+      // Prepare the contract call
+      const transaction = prepareContractCall({
+        contract,
+        method: "function addReview((string id, string userId, string merchantId, string username, string restaurantName, uint8 rating, string reviewText, string date, uint256 upvotes, uint256 downvotes, uint256 confidenceScore, string createdAt, uint8 foodQuality, uint8 service, uint8 atmosphere, uint8 value, string orderId, uint256 orderTotal, string updatedAt) data)",
+        params: [reviewInput],
+      });
+
       toast.success('Review submitted! Waiting for confirmation...');
       
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
+      // Send and confirm the transaction
+      const receipt = await sendAndConfirmTransaction({
+        transaction,
+        account,
+      });
       
-      if (receipt.status === 1) {
-        toast.success('Review submitted successfully to blockchain!');
-        console.log('Review submitted to blockchain:', receipt.hash);
-        
-        // Clear completed order
-        localStorage.removeItem('completedOrder');
-        
-        setTimeout(() => {
-          router.push('/dashboard/user');
-        }, 2000);
-      } else {
-        throw new Error('Transaction failed');
-      }
+      toast.success('Review submitted successfully to blockchain!');
+      console.log('Review submitted to blockchain:', receipt.transactionHash);
+      
+      // Clear completed order
+      localStorage.removeItem('completedOrder');
+      
+      setTimeout(() => {
+        router.push('/users/dashboard');
+      }, 2000);
       
     } catch (error) {
       console.error('Error submitting review:', error);
-      if (error.code === 4001) {
+      if (error.message?.includes('User rejected')) {
         toast.error('Transaction was rejected by user');
       } else {
         toast.error(`Failed to submit review: ${error.message}`);
@@ -156,19 +124,6 @@ export default function Review() {
     }
   };
 
-  if (!address) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Please Connect Your Wallet</h2>
-          <p className="text-gray-600 mb-6">Connect your wallet to submit a review.</p>
-          <Link href="/users/login" className="btn-primary">
-            Go to Login
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   if (!order) {
     return (
@@ -186,26 +141,7 @@ export default function Review() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/users/menu" className="flex items-center space-x-2">
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-              <span className="text-gray-600">Back to Restaurants</span>
-            </Link>
-            <div className="flex items-center space-x-4">
-              <Link href="/users/dashboard" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-                <User className="w-5 h-5" />
-                <span>Dashboard</span>
-              </Link>
-              <span className="text-sm text-gray-600">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Header title="Back to Restaurants" backUrl="/users/menu" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

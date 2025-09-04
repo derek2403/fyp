@@ -3,6 +3,8 @@ import { ThirdwebProvider as ThirdwebProviderV5 } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { Toaster } from "react-hot-toast";
+import { WalletProvider } from "../context/wallet";
+import Header from "../components/Header";
 import "../styles/globals.css";
 
 // Define Base Sepolia chain configuration for v4 provider
@@ -33,8 +35,10 @@ function MyApp({ Component, pageProps }) {
   return (
     <ThirdwebProviderV5 client={client} activeChain={baseSepolia}>
       <ThirdwebProviderV4 activeChain={BaseSepoliaV4} clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id"}>
-        <Component {...pageProps} />
-        <Toaster position="top-right" />
+        <WalletProvider>
+          <Component {...pageProps} />
+          <Toaster position="top-right" />
+        </WalletProvider>
       </ThirdwebProviderV4>
     </ThirdwebProviderV5>
   );

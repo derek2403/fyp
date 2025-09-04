@@ -6,14 +6,13 @@ import { prepareTransaction, sendAndConfirmTransaction, createThirdwebClient } f
 import { toWei } from "thirdweb/utils";
 import { motion } from "framer-motion";
 import { 
-  ArrowLeft,
   CreditCard,
   CheckCircle,
   ShoppingCart,
-  User,
   AlertCircle
 } from "lucide-react";
 import Link from 'next/link';
+import Header from '../../components/Header';
 import toast from 'react-hot-toast';
 
 // Exchange rate: 1 USD = 0.00026 ETH
@@ -41,7 +40,8 @@ export default function Checkout() {
     
     const orderData = localStorage.getItem('currentOrder');
     if (!orderData) {
-      router.push('/users/menu');
+      // Always go to review when there's no active order
+      router.replace('/users/review');
       return;
     }
     
@@ -82,6 +82,9 @@ export default function Checkout() {
       const userResponse = await fetch(`/api/users?address=${address}`);
       const userData = await userResponse.json();
       
+      // Clear current order first
+      localStorage.removeItem('currentOrder');
+      
       // Store order in localStorage for review page with all required data
       localStorage.setItem('completedOrder', JSON.stringify({
         ...order,
@@ -98,12 +101,12 @@ export default function Checkout() {
         gasPrice: '0'
       }));
       
-      // Clear current order
-      localStorage.removeItem('currentOrder');
-      
+      // Small delay to ensure localStorage is written before navigation
       setTimeout(() => {
-        router.push('/users/review');
-      }, 800);
+        router.replace('/users/review');
+      }, 100);
+      
+      return;
       
     } catch (error) {
       console.error('Payment error:', error);
@@ -147,26 +150,7 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/users/menu" className="flex items-center space-x-2">
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-              <span className="text-gray-600">Back to Restaurants</span>
-            </Link>
-            <div className="flex items-center space-x-4">
-              <Link href="/users/dashboard" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-                <User className="w-5 h-5" />
-                <span>Dashboard</span>
-              </Link>
-              <span className="text-sm text-gray-600">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Header title="Back to Restaurants" backUrl="/users/menu" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
