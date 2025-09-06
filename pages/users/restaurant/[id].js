@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useActiveAccount } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
+import { getContract, readContract } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft,
@@ -11,10 +14,22 @@ import {
   ShoppingCart,
   Plus,
   Minus,
-  User
+  User,
+  MessageSquare,
+  Calendar,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+
+// Smart contract configuration
+const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
+
+// Create thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
 
 export default function RestaurantMenu() {
   const router = useRouter();
@@ -26,6 +41,16 @@ export default function RestaurantMenu() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+
+  // Get contract instance
+  const contract = getContract({
+    client,
+    chain: baseSepolia,
+    address: CONTRACT_ADDRESS,
+  });
 
   useEffect(() => {
     if (!address) {
@@ -46,6 +71,9 @@ export default function RestaurantMenu() {
 
       // Use menu data directly from restaurant object
       setMenuItems(restaurantData.menu || []);
+      
+      // Fetch reviews for this restaurant
+      fetchRestaurantReviews(id);
     } catch (error) {
       console.error('Error fetching restaurant data:', error);
       toast.error('Failed to load restaurant data');
@@ -54,41 +82,78 @@ export default function RestaurantMenu() {
     }
   };
 
-  const addToCart = (item) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
-      if (existingItem) {
-        return prevCart.map(cartItem =>
-          cartItem.id === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        );
-      } else {
-        return [...prevCart, { ...item, quantity: 1 }];
-      }
-    });
-    toast.success(`${item.name} added to cart!`);
+  // Fetch reviews for specific restaurant from smart contract
+  const fetchRestaurantReviews = async (merchantId) => {
+    setReviewsLoading(true);
+    try {
+      // Get all reviews from contract
+      const allReviews = await readContract({
+        contract,
+        method: "function getAllReviews() view returns ((string id, string userId, string merchantId, string username, string restaurantName, uint8 rating, string reviewText, string date, uint256 upvotes, uint256 downvotes, uint256 confidenceScore, string createdAt, uint8 foodQuality, uint8 service, uint8 atmosphere, uint8 value, string orderId, uint256 orderTotal, string updatedAt)[])",
+        params: [],
+      });
+
+      // Filter reviews for this specific merchant
+      const restaurantReviews = allReviews.filter(review => 
+        review.merchantId === merchantId
+      );
+
+      setReviews(restaurantReviews);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      toast.error('Failed to load reviews');
+    } finally {
+      setReviewsLoading(false);
+    }
   };
 
-  const removeFromCart = (itemId) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
-    toast.success('Item removed from cart');
+  // Helper function to render star ratings
+  const renderStars = (rating, size = 'w-4 h-4') => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`${size} ${
+          i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
+
+  // Helper function to format dates
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const addToCart = (item) => {
+    const existingItem = cart.find(cartItem => cartItem.id === item.id);
+    if (existingItem) {
+      setCart(cart.map(cartItem =>
+        cartItem.id === item.id
+          ? { ...cartItem, quantity: cartItem.quantity + 1 }
+          : cartItem
+      ));
+    } else {
+      setCart([...cart, { ...item, quantity: 1 }]);
+    }
+    toast.success(`${item.name} added to cart!`);
   };
 
   const updateQuantity = (itemId, newQuantity) => {
     if (newQuantity <= 0) {
-      removeFromCart(itemId);
-      return;
-    }
-    setCart(prevCart =>
-      prevCart.map(item =>
+      setCart(cart.filter(item => item.id !== itemId));
+    } else {
+      setCart(cart.map(item =>
         item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
-    );
+      ));
+    }
   };
 
   const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return cart.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
   };
 
   const handleCheckout = () => {
@@ -97,19 +162,20 @@ export default function RestaurantMenu() {
       return;
     }
     
-    // Store cart data in localStorage for the review page
-    localStorage.setItem('currentOrder', JSON.stringify({
-      restaurantId: id,
-      restaurantName: restaurant?.name,
+    // Store cart data for checkout
+    localStorage.setItem('checkoutCart', JSON.stringify({
       items: cart,
-      total: getTotalPrice(),
-      orderDate: new Date().toISOString()
+      restaurant: restaurant,
+      total: getTotalPrice()
     }));
     
     router.push('/users/checkout');
   };
 
+  // Get unique categories from menu items
   const categories = [...new Set(menuItems.map(item => item.category))];
+  
+  // Filter menu items by selected category
   const filteredMenuItems = selectedCategory === 'all' 
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
@@ -119,7 +185,7 @@ export default function RestaurantMenu() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Please Connect Your Wallet</h2>
-          <p className="text-gray-600 mb-6">Connect your wallet to view the menu.</p>
+          <p className="text-gray-600 mb-6">Connect your wallet to access the menu.</p>
           <Link href="/users/login" className="btn-primary">
             Go to Login
           </Link>
@@ -133,7 +199,7 @@ export default function RestaurantMenu() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Menu...</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Restaurant...</h2>
           <p className="text-gray-600">Please wait while we fetch the menu</p>
         </div>
       </div>
@@ -169,10 +235,6 @@ export default function RestaurantMenu() {
                 <User className="w-5 h-5" />
                 <span>Dashboard</span>
               </Link>
-              <div className="flex items-center space-x-2 text-gray-600">
-                <ShoppingCart className="w-5 h-5" />
-                <span>Cart ({cart.length})</span>
-              </div>
               <span className="text-sm text-gray-600">
                 {address?.slice(0, 6)}...{address?.slice(-4)}
               </span>
@@ -187,17 +249,21 @@ export default function RestaurantMenu() {
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-4">
               <div className="text-6xl">{restaurant.image}</div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">{restaurant.name}</h1>
-                <div className="flex items-center space-x-4 mb-3">
+                <p className="text-gray-600 mb-4">{restaurant.description}</p>
+                <div className="flex items-center space-x-4 mb-4">
                   <div className="flex items-center space-x-1">
                     <Star className="w-5 h-5 text-yellow-400 fill-current" />
                     <span className="font-medium">{restaurant.rating}</span>
+                    <span className="text-gray-500">({reviews.length} reviews)</span>
                   </div>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-500">{restaurant.cuisine}</span>
+                  <span className="text-gray-500">•</span>
                   <span className="text-gray-500">{restaurant.priceRange}</span>
-                  <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    {restaurant.cuisine}
-                  </span>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-500">{restaurant.distance}</span>
                 </div>
                 <div className="space-y-1 text-sm text-gray-600">
                   <div className="flex items-center space-x-2">
@@ -250,7 +316,7 @@ export default function RestaurantMenu() {
             <div className="space-y-4">
               {filteredMenuItems.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🍽️</div>
+                  <div className="text-6xl mb-4">🍽</div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">No menu items found</h3>
                   <p className="text-gray-600">Try selecting a different category</p>
                 </div>
@@ -276,7 +342,7 @@ export default function RestaurantMenu() {
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                             {item.category}
                           </span>
-                          <span className="text-xs text-gray-500">{item.sales} orders</span>
+                          <span className="text-xs text-gray-500">{item.sales || 0} orders</span>
                         </div>
                       </div>
                       <button
@@ -347,10 +413,172 @@ export default function RestaurantMenu() {
                   </button>
                 </>
               )}
+              
+              {/* View Reviews Button */}
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowReviewsModal(true)}
+                  className="w-full flex items-center justify-center space-x-3 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  <span>View Reviews ({reviews.length})</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Reviews Modal */}
+      {showReviewsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <MessageSquare className="w-6 h-6 mr-2" />
+                Customer Reviews ({reviews.length})
+              </h2>
+              <button
+                onClick={() => setShowReviewsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {reviewsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading reviews...</span>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No reviews yet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Be the first to leave a review for this restaurant!
+                  </p>
+                  <Link 
+                    href="/users/review" 
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Write a Review
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((review, index) => (
+                    <motion.div
+                      key={review.id || index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      className="border border-gray-200 rounded-lg p-6"
+                    >
+                      {/* Review Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{review.username}</h4>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <div className="flex items-center">
+                                {renderStars(Number(review.rating))}
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {Number(review.rating)}/5
+                              </span>
+                              <span className="text-sm text-gray-400">•</span>
+                              <div className="flex items-center text-sm text-gray-500">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                {formatDate(review.createdAt)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Confidence Score</div>
+                          <div className="text-lg font-semibold text-green-600">
+                            {Number(review.confidenceScore)}%
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Review Text */}
+                      <p className="text-gray-700 mb-4 leading-relaxed">
+                        {review.reviewText}
+                      </p>
+
+                      {/* Detailed Ratings */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-sm text-gray-600 mb-1">Food Quality</div>
+                          <div className="flex items-center justify-center space-x-1">
+                            {renderStars(Number(review.foodQuality))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(review.foodQuality)}/5
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-gray-600 mb-1">Service</div>
+                          <div className="flex items-center justify-center space-x-1">
+                            {renderStars(Number(review.service))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(review.service)}/5
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-gray-600 mb-1">Atmosphere</div>
+                          <div className="flex items-center justify-center space-x-1">
+                            {renderStars(Number(review.atmosphere))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(review.atmosphere)}/5
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-gray-600 mb-1">Value</div>
+                          <div className="flex items-center justify-center space-x-1">
+                            {renderStars(Number(review.value))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(review.value)}/5
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Review Footer */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>Order Total: ${(Number(review.orderTotal) / 100).toFixed(2)}</span>
+                          <span>Order ID: {review.orderId}</span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-1 text-sm text-gray-500">
+                            <ThumbsUp className="w-4 h-4" />
+                            <span>{Number(review.upvotes)}</span>
+                          </div>
+                          <div className="flex items-center space-x-1 text-sm text-gray-500">
+                            <ThumbsDown className="w-4 h-4" />
+                            <span>{Number(review.downvotes)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}
