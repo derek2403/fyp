@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useActiveAccount } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
+import { getContract, readContract } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
   Heart, 
@@ -15,6 +18,14 @@ import {
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+// Smart contract configuration
+const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
+
+// Create thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
+
 export default function UserMenu() {
   const router = useRouter();
   const account = useActiveAccount();
@@ -24,6 +35,14 @@ export default function UserMenu() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState('all');
   const [cart, setCart] = useState([]);
+  const [allReviews, setAllReviews] = useState([]);
+
+  // Get contract instance
+  const contract = getContract({
+    client,
+    chain: baseSepolia,
+    address: CONTRACT_ADDRESS,
+  });
 
   useEffect(() => {
     if (!address) {
@@ -31,6 +50,7 @@ export default function UserMenu() {
       return;
     }
     fetchRestaurants();
+    fetchAllReviews();
   }, [address, router]);
 
   const fetchRestaurants = async () => {
@@ -46,12 +66,60 @@ export default function UserMenu() {
     }
   };
 
+  const fetchAllReviews = async () => {
+    try {
+      // Get all reviews from smart contract
+      const reviews = await readContract({
+        contract,
+        method: "function getAllReviews() view returns ((string id, string userId, string merchantId, string username, string restaurantName, uint8 rating, string reviewText, string date, uint256 upvotes, uint256 downvotes, uint256 confidenceScore, string createdAt, uint8 foodQuality, uint8 service, uint8 atmosphere, uint8 value, string orderId, uint256 orderTotal, string updatedAt)[])",
+        params: [],
+      });
+
+      // Convert blockchain data to readable format
+      const formattedReviews = reviews.map(review => ({
+        id: review.id,
+        userId: review.userId,
+        merchantId: review.merchantId,
+        username: review.username,
+        restaurantName: review.restaurantName,
+        rating: Number(review.rating),
+        review: review.reviewText,
+        date: review.date,
+        upvotes: Number(review.upvotes),
+        downvotes: Number(review.downvotes),
+        confidenceScore: Number(review.confidenceScore),
+        createdAt: review.createdAt,
+        foodQuality: Number(review.foodQuality),
+        service: Number(review.service),
+        atmosphere: Number(review.atmosphere),
+        value: Number(review.value),
+        orderId: review.orderId,
+        orderTotal: Number(review.orderTotal),
+        updatedAt: review.updatedAt
+      }));
+
+      setAllReviews(formattedReviews);
+    } catch (error) {
+      console.error('Error fetching reviews from blockchain:', error);
+      // Don't show error toast for reviews as it's not critical for menu display
+    }
+  };
+
   const filteredRestaurants = restaurants.filter(restaurant => {
     const matchesSearch = restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          restaurant.cuisine.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCuisine = selectedCuisine === 'all' || restaurant.cuisine.toLowerCase() === selectedCuisine;
     return matchesSearch && matchesCuisine;
   });
+
+  // Calculate average rating for each restaurant
+  const getRestaurantRating = (restaurantId) => {
+    const restaurantReviews = allReviews.filter(review => review.merchantId === restaurantId);
+    if (restaurantReviews.length === 0) return 0;
+    
+    const averageRating = restaurantReviews.reduce((acc, review) => acc + review.rating, 0) / restaurantReviews.length;
+    return Number(averageRating.toFixed(1));
+  };
 
   const cuisines = [...new Set(restaurants.map(r => r.cuisine))];
 
@@ -174,7 +242,7 @@ export default function UserMenu() {
                     <div className="text-right">
                       <div className="flex items-center space-x-1 mb-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-sm font-medium">{restaurant.rating}</span>
+                        <span className="text-sm font-medium">{getRestaurantRating(restaurant.id)}</span>
                       </div>
                       <span className="text-sm text-gray-500">{restaurant.priceRange}</span>
                     </div>
@@ -235,7 +303,10 @@ export default function UserMenu() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Average Rating</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {(restaurants.reduce((acc, r) => acc + r.rating, 0) / restaurants.length).toFixed(1)}
+                  {allReviews.length > 0 
+                    ? (allReviews.reduce((acc, r) => acc + r.rating, 0) / allReviews.length).toFixed(1)
+                    : '0.0'
+                  }
                 </p>
               </div>
             </div>

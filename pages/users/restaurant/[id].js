@@ -44,6 +44,7 @@ export default function RestaurantMenu() {
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [averageRating, setAverageRating] = useState(0);
 
   // Get contract instance
   const contract = getContract({
@@ -98,7 +99,38 @@ export default function RestaurantMenu() {
         review.merchantId === merchantId
       );
 
-      setReviews(restaurantReviews);
+      // Convert blockchain data to readable format
+      const formattedReviews = restaurantReviews.map(review => ({
+        id: review.id,
+        userId: review.userId,
+        merchantId: review.merchantId,
+        username: review.username,
+        restaurantName: review.restaurantName,
+        rating: Number(review.rating),
+        review: review.reviewText,
+        date: review.date,
+        upvotes: Number(review.upvotes),
+        downvotes: Number(review.downvotes),
+        confidenceScore: Number(review.confidenceScore),
+        createdAt: review.createdAt,
+        foodQuality: Number(review.foodQuality),
+        service: Number(review.service),
+        atmosphere: Number(review.atmosphere),
+        value: Number(review.value),
+        orderId: review.orderId,
+        orderTotal: Number(review.orderTotal),
+        updatedAt: review.updatedAt
+      }));
+
+      setReviews(formattedReviews);
+
+      // Calculate average rating
+      if (formattedReviews.length > 0) {
+        const avgRating = formattedReviews.reduce((acc, review) => acc + review.rating, 0) / formattedReviews.length;
+        setAverageRating(Number(avgRating.toFixed(1)));
+      } else {
+        setAverageRating(0);
+      }
     } catch (error) {
       console.error('Error fetching reviews:', error);
       toast.error('Failed to load reviews');
@@ -255,7 +287,7 @@ export default function RestaurantMenu() {
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="flex items-center space-x-1">
                     <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                    <span className="font-medium">{restaurant.rating}</span>
+                    <span className="font-medium">{averageRating}</span>
                     <span className="text-gray-500">({reviews.length} reviews)</span>
                   </div>
                   <span className="text-gray-500">•</span>
@@ -434,10 +466,18 @@ export default function RestaurantMenu() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <MessageSquare className="w-6 h-6 mr-2" />
-                Customer Reviews ({reviews.length})
-              </h2>
+              <div className="flex items-center space-x-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <MessageSquare className="w-6 h-6 mr-2" />
+                  Customer Reviews ({reviews.length})
+                </h2>
+                {reviews.length > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                    <span className="text-lg font-semibold text-gray-900">{averageRating}/5</span>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowReviewsModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
