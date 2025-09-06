@@ -14,26 +14,29 @@ export default function handler(req, res) {
     // Transform merchants data to restaurant format for compatibility
     const restaurants = merchantsData.merchants.map(merchant => {
       // Get cuisine icon based on first cuisine type
-      let cuisineIcon = 'food';
+      let cuisineIcon = '🍽️';
       if (merchant.selectedCuisines && merchant.selectedCuisines.length > 0) {
         const firstCuisine = merchant.selectedCuisines[0].toLowerCase();
         const cuisineIcons = {
-          'italian': 'pasta',
-          'chinese': 'chopsticks', 
-          'japanese': 'sushi',
-          'thai': 'noodles',
-          'indian': 'curry',
-          'mexican': 'taco',
-          'korean': 'soup',
-          'american': 'burger',
-          'french': 'croissant',
-          'seafood': 'shrimp',
-          'bbq': 'meat',
-          'desserts': 'cake',
-          'cafe': 'coffee',
-          'bakery': 'bread'
+          'italian': '🍝',
+          'chinese': '🥢', 
+          'japanese': '🍣',
+          'thai': '🍜',
+          'indian': '🍛',
+          'mexican': '🌮',
+          'korean': '🍲',
+          'american': '🍔',
+          'french': '🥐',
+          'seafood': '🦐',
+          'bbq': '🍖',
+          'desserts': '🍰',
+          'cafe': '☕',
+          'bakery': '🥖',
+          'vegetarian': '🥗',
+          'vegan': '🌱',
+          'mediterranean': '🥙'
         };
-        cuisineIcon = cuisineIcons[firstCuisine] || 'food';
+        cuisineIcon = cuisineIcons[firstCuisine] || '🍽️';
       }
 
       return {
