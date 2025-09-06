@@ -45,6 +45,8 @@ export default function RestaurantMenu() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [averageRating, setAverageRating] = useState(0);
+  const [reviewSummary, setReviewSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   // Get contract instance
   const contract = getContract({
@@ -136,6 +138,40 @@ export default function RestaurantMenu() {
       toast.error('Failed to load reviews');
     } finally {
       setReviewsLoading(false);
+    }
+  };
+
+  // Generate AI summary of reviews
+  const generateReviewSummary = async () => {
+    if (reviews.length === 0) {
+      toast.error('No reviews available to analyze');
+      return;
+    }
+
+    setSummaryLoading(true);
+    try {
+      const response = await fetch('/api/reviews/summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reviews: reviews,
+          restaurantName: restaurant?.name || 'this restaurant'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const data = await response.json();
+      setReviewSummary(data.summary);
+    } catch (error) {
+      console.error('Error generating review summary:', error);
+      toast.error('Failed to generate review summary');
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -456,6 +492,37 @@ export default function RestaurantMenu() {
                   <span>View Reviews ({reviews.length})</span>
                 </button>
               </div>
+
+              {/* AI Review Summary Section */}
+              {reviews.length > 0 && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Star className="w-5 h-5 text-yellow-500 mr-2" />
+                      AI Review Summary
+                    </h3>
+                    <button
+                      onClick={generateReviewSummary}
+                      disabled={summaryLoading}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {summaryLoading ? 'Analyzing...' : 'Generate Summary'}
+                    </button>
+                  </div>
+                  
+                  {reviewSummary ? (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-gray-700 leading-relaxed">{reviewSummary}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 text-sm">
+                        Click "Generate Summary" to get an AI-powered overview of customer reviews
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
