@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { inAppWallet, createWallet } from "thirdweb/wallets";
@@ -85,14 +85,48 @@ export default function MerchantCreate() {
     category: '',
     image: null
   });
+  
+  const hasRedirectedRef = useRef(false);
+  const hasCheckedRef = useRef(false);
+  const currentAddressRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const isCheckingRef = useRef(false);
 
   useEffect(() => {
-    if (address) {
-      checkMerchantExists();
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
+
+    // Reset refs when address changes
+    if (address !== currentAddressRef.current) {
+      hasRedirectedRef.current = false;
+      hasCheckedRef.current = false;
+      isCheckingRef.current = false;
+      currentAddressRef.current = address;
+    }
+
+    if (address && !hasCheckedRef.current && !isCheckingRef.current) {
+      hasCheckedRef.current = true;
+      // Add a small delay to prevent rapid calls
+      timeoutRef.current = setTimeout(() => {
+        checkMerchantExists();
+      }, 500);
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [address]);
 
   const checkMerchantExists = async () => {
+    if (hasRedirectedRef.current || !address || isCheckingRef.current) return;
+    
+    isCheckingRef.current = true;
+    
     try {
       const response = await fetch('/api/merchants/check', {
         method: 'POST',
@@ -101,14 +135,15 @@ export default function MerchantCreate() {
       });
       const data = await response.json();
       
-      if (data.exists) {
+      if (data.exists && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
         toast.success('Welcome back! Redirecting to your dashboard...');
-        setTimeout(() => {
-          router.push('/merchant/dashboard');
-        }, 800);
+        router.replace('/merchant/dashboard');
       }
     } catch (error) {
       console.error('Error checking merchant:', error);
+    } finally {
+      isCheckingRef.current = false;
     }
   };
 
@@ -397,7 +432,7 @@ export default function MerchantCreate() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font_medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Website (Optional)
                   </label>
                   <div className="relative">
@@ -712,4 +747,4 @@ export default function MerchantCreate() {
       </div>
     </div>
   );
-} 
+}

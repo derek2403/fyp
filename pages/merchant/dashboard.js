@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress } from "@thirdweb-dev/react";
+import { useActiveAccount } from "thirdweb/react";
 import { motion } from "framer-motion";
 import { 
   Star, 
@@ -27,27 +27,53 @@ import toast from 'react-hot-toast';
 
 export default function MerchantDashboard() {
   const router = useRouter();
-  const address = useAddress();
+  const account = useActiveAccount();
+  const address = account?.address;
   const [merchantData, setMerchantData] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRating, setSelectedRating] = useState('all');
+  const hasFetchedRef = useRef(false);
+  const currentAddressRef = useRef(null);
 
   useEffect(() => {
+    // Reset ref when address changes
+    if (address !== currentAddressRef.current) {
+      hasFetchedRef.current = false;
+      currentAddressRef.current = address;
+    }
+
     if (!address) {
       router.push('/merchant/create');
       return;
     }
-    fetchMerchantData();
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchMerchantData();
+    }
   }, [address, router]);
 
   const fetchMerchantData = async () => {
     try {
       // Fetch merchant data
       const merchantResponse = await fetch(`/api/merchants?address=${address}`);
+      
+      if (merchantResponse.status === 404) {
+        // Merchant not found, redirect to create
+        router.replace('/merchant/create');
+        return;
+      }
+      
       const merchant = await merchantResponse.json();
+      
+      if (!merchant || !merchant.id) {
+        // Merchant not found, redirect to create
+        router.replace('/merchant/create');
+        return;
+      }
+      
       setMerchantData(merchant);
 
       // Fetch reviews for this merchant

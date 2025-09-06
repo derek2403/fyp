@@ -126,6 +126,73 @@
       "totalCustomers": 0,
       "averageRating": 0,
       "totalReviews": 0
+    },
+    {
+      "id": "merchant_1757176501945",
+      "address": "0x6F5f06aC116b29252F880a83Cba11a6Eea85Cc14",
+      "shopName": "Tasty China",
+      "description": "Authentic Chinese food",
+      "businessAddress": "No 34, Jalan Residensi 6, Taman Residensi,",
+      "phone": "0127173985",
+      "website": "",
+      "email": "derekliew0@gmail.com",
+      "selectedCuisines": [
+        "chinese"
+      ],
+      "priceRange": "luxury",
+      "openingHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "22:00",
+          "closed": false
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "22:00",
+          "closed": false
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "22:00",
+          "closed": false
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "22:00",
+          "closed": false
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "23:00",
+          "closed": false
+        },
+        "saturday": {
+          "open": "10:00",
+          "close": "23:00",
+          "closed": false
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "21:00",
+          "closed": false
+        }
+      },
+      "menu": [
+        {
+          "name": "Sweet and Sour Pork Rice",
+          "description": "Sweet sauce on pork",
+          "price": "15.00",
+          "category": "main-course",
+          "image": null,
+          "id": 1757176498162
+        }
+      ],
+      "createdAt": "2025-09-06T16:35:01.945Z",
+      "updatedAt": "2025-09-06T16:35:01.945Z",
+      "monthlyRevenue": 0,
+      "totalCustomers": 0,
+      "averageRating": 0,
+      "totalReviews": 0
     }
   ]
 }
