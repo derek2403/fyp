@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAddress } from "@thirdweb-dev/react";
+import { useActiveAccount } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
+import { getContract, readContract } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
   Star, 
@@ -14,19 +17,38 @@ import {
   Heart,
   Search,
   Filter,
-  User
+  User,
+  Shield
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+// Smart contract configuration
+const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
+
+// Create thirdweb client
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "your-thirdweb-client-id",
+});
+
 export default function UserDashboard() {
   const router = useRouter();
-  const address = useAddress();
+  const account = useActiveAccount();
+  const address = account?.address;
   const [userData, setUserData] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRating, setSelectedRating] = useState('all');
+  const [averageConfidenceScore, setAverageConfidenceScore] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+
+  // Get contract instance
+  const contract = getContract({
+    client,
+    chain: baseSepolia,
+    address: CONTRACT_ADDRESS,
+  });
 
   useEffect(() => {
     if (!address) {
@@ -38,18 +60,76 @@ export default function UserDashboard() {
 
   const fetchUserData = async () => {
     try {
-      // Fetch user data
+      // Fetch user data from API
       const userResponse = await fetch(`/api/users?address=${address}`);
       const user = await userResponse.json();
       setUserData(user);
 
-      // Fetch user reviews
-      const reviewsResponse = await fetch(`/api/reviews?userId=${user.id}`);
-      const reviewsData = await reviewsResponse.json();
-      setReviews(reviewsData.reviews || []);
+      // Fetch all reviews from blockchain
+      await fetchUserReviewsFromBlockchain();
     } catch (error) {
       console.error('Error fetching user data:', error);
       toast.error('Failed to load user data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserReviewsFromBlockchain = async () => {
+    setLoading(true);
+    try {
+      // Get all reviews from smart contract
+      const allReviews = await readContract({
+        contract,
+        method: "function getAllReviews() view returns ((string id, string userId, string merchantId, string username, string restaurantName, uint8 rating, string reviewText, string date, uint256 upvotes, uint256 downvotes, uint256 confidenceScore, string createdAt, uint8 foodQuality, uint8 service, uint8 atmosphere, uint8 value, string orderId, uint256 orderTotal, string updatedAt)[])",
+        params: [],
+      });
+
+      // Filter reviews for current user by wallet address
+      const userReviews = allReviews.filter(review => 
+        review.userId.toLowerCase() === address.toLowerCase() ||
+        review.username.toLowerCase() === (userData?.username || '').toLowerCase()
+      );
+
+      // Convert blockchain data to readable format
+      const formattedReviews = userReviews.map(review => ({
+        id: review.id,
+        userId: review.userId,
+        merchantId: review.merchantId,
+        username: review.username,
+        restaurantName: review.restaurantName,
+        rating: Number(review.rating),
+        review: review.reviewText,
+        date: review.date,
+        upvotes: Number(review.upvotes),
+        downvotes: Number(review.downvotes),
+        confidenceScore: Number(review.confidenceScore),
+        createdAt: review.createdAt,
+        foodQuality: Number(review.foodQuality),
+        service: Number(review.service),
+        atmosphere: Number(review.atmosphere),
+        value: Number(review.value),
+        orderId: review.orderId,
+        orderTotal: Number(review.orderTotal),
+        updatedAt: review.updatedAt
+      }));
+
+      setReviews(formattedReviews);
+      setTotalReviews(formattedReviews.length);
+      
+      // Calculate average confidence score
+      if (formattedReviews.length > 0) {
+        const totalConfidence = formattedReviews.reduce((sum, review) => sum + review.confidenceScore, 0);
+        const avgConfidence = totalConfidence / formattedReviews.length;
+        setAverageConfidenceScore(Math.round(avgConfidence));
+      } else {
+        setAverageConfidenceScore(0);
+      }
+
+      toast.success(`Loaded ${formattedReviews.length} reviews from blockchain`);
+    } catch (error) {
+      console.error('Error fetching reviews from blockchain:', error);
+      toast.error('Failed to load reviews from blockchain');
     } finally {
       setLoading(false);
     }
@@ -140,7 +220,7 @@ export default function UserDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Reviews</p>
-                <p className="text-2xl font-bold text-gray-900">{reviews.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalReviews}</p>
               </div>
             </div>
           </motion.div>
@@ -170,11 +250,11 @@ export default function UserDashboard() {
           >
             <div className="flex items-center">
               <div className="p-3 bg-green-100 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-green-600" />
+                <Shield className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Reliability Score</p>
-                <p className="text-2xl font-bold text-gray-900">{userData?.reliabilityScore || 85}%</p>
+                <p className="text-sm font-medium text-gray-600">Avg Confidence</p>
+                <p className="text-2xl font-bold text-gray-900">{averageConfidenceScore}%</p>
               </div>
             </div>
           </motion.div>
@@ -223,6 +303,14 @@ export default function UserDashboard() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Your Reviews</h3>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={fetchUserReviewsFromBlockchain}
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>{loading ? 'Loading...' : 'Refresh'}</span>
+              </button>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -248,7 +336,13 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          {filteredReviews.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading Reviews...</h3>
+              <p className="text-gray-600">Fetching your reviews from the blockchain</p>
+            </div>
+          ) : filteredReviews.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No reviews found</h3>
@@ -293,10 +387,67 @@ export default function UserDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-500">Confidence Score</div>
-                      <div className="text-lg font-semibold text-green-600">{review.confidenceScore || 85}%</div>
+                      <div className="text-lg font-semibold text-green-600">{review.confidenceScore}%</div>
                     </div>
                   </div>
                   <p className="text-gray-700 mb-3">{review.review}</p>
+                  
+                  {/* Detailed Ratings */}
+                  <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Food Quality:</span>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.foodQuality ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Service:</span>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.service ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Atmosphere:</span>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.atmosphere ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Value:</span>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.value ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-1">
@@ -307,6 +458,9 @@ export default function UserDashboard() {
                         <ThumbsDown className="w-4 h-4 text-red-500" />
                         <span className="text-sm text-gray-600">{review.downvotes || 0}</span>
                       </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Order Total: ${(review.orderTotal / 100).toFixed(2)}
                     </div>
                   </div>
                 </motion.div>
