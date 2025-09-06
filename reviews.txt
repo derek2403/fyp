@@ -1,0 +1,100 @@
+Tasty.,1
+Good.,1
+Nice bite.,1
+Loved it.,1
+Pleasant.,1
+Bad.,1
+Bland.,1
+Meh.,1
+Yuck.,1
+Not great.,1
+Tasty noodles and friendly staff,2
+Good burger and quick service,2
+Fresh salad and fair price,2
+Warm soup and cozy vibe,2
+Crisp fries and clean tables,2
+Cold noodles and slow staff,2
+Dry burger with long wait,2
+Wilted salad and pricey,2
+Lukewarm soup and noisy room,2
+Soggy fries and sticky table,2
+The laksa was tasty with a gentle coconut note,3
+Juicy chicken rice came with a lively chili dip,3
+Curry puff had a flaky shell and warm spice,3
+Pho broth felt clean and soothing,3
+Sourdough toast arrived warm and aromatic,3
+Laksa tasted flat with muted spice,3
+Chicken rice was dry and underseasoned,3
+Curry puff felt greasy and heavy,3
+Pho broth seemed thin and watery,3
+Toast came cold and rubbery,3
+Pepperoni pizza had a light char and stretchy cheese,4
+Ramen egg was jammy and the broth pleasantly rich,4
+Satay was smoky with a nutty balanced peanut sauce,4
+Fish and chips were crisp with fluffy potatoes,4
+Taco tortillas were fresh and the salsa bright,4
+Pizza was pale with leathery cheese,4
+Ramen broth tasted dull and noodles over soft,4
+Satay arrived cold and the sauce cloying,4
+Fish batter went soggy and fries limp,4
+Tortillas were stale and salsa bland,4
+Burger patty juicy; bun held together,5
+Char kway teow smoky; prawns bouncy,5
+Caesar had crunch; dressing assertive,5
+Nasi lemak fragrant; sambal balanced,5
+Sushi rice precise; fish clean,5
+Patty underseasoned; bun crumbled,5
+Wok hei missing; prawns mushy,5
+Romaine limp; dressing dull,5
+Rice clumpy; sambal harsh,5
+Rice warm; fish smelled off,5
+Beef rendang was tender with layered spice and the staff checked in at the right moments,6
+Thin crust pizza showed leopard spots and a lively tomato base; water refills were prompt,6
+Grilled salmon flaked cleanly and the lemon butter felt balanced,6
+Udon noodles were springy in a gentle dashi with crisp tempura on the side,6
+Pulled pork sandwich was juicy and the slaw added a fresh tang,6
+Rendang tasted muddy and arrived lukewarm while service was distracted,6
+Crust lacked color and the sauce was flat; no one noticed empty glasses,6
+Salmon was overdone and the butter sauce greasy,6
+Udon turned soft quickly and the tempura was soggy,6
+Pulled pork was dry with a slaw that drowned it,6
+Breakfast arrived in ten minutes with soft scrambled eggs and warm sourdough. Coffee was smooth and topped up without asking,7
+Pho had depth from star anise and charred onion. Herbs were fresh and the brisket tender,7
+Tonkotsu broth was silky and not too salty. Noodles had bite and the chashu melted,7
+Chicken shawarma was juicy with bright pickles. Pita stayed pliable to the last bite,7
+Tiramisu balanced cocoa and coffee aroma. Portion was generous for sharing,7
+Our breakfast took ages and eggs were firm. Toast cooled on the plate and no refills came,7
+Pho lacked body and tasted sweet. Basil looked tired and the beef was stringy,7
+Tonkotsu felt heavy and one note. Noodles were soft and egg overcooked,7
+Shawarma meat was dry and salty. The pita tore and fillings spilled,7
+Tiramisu leaned sugary. The sponge barely tasted of coffee,7
+The tasting menu opened with cured mackerel torch ginger and lime. Acidity popped while the fish stayed silky; plating was minimal yet elegant,8
+Hainanese chicken had glassy skin and succulent meat. Rice grains stayed distinct and the chili garlic sauce sang,8
+Neapolitan pizza used 48-hour dough with a balanced leopard char. Mozzarella stretched cleanly and basil finished it bright,8
+Char kway teow carried true wok hei with cockles just set. Chives and bean sprouts kept the plate lively,8
+Sashimi came on shaved ice with fresh wasabi. Knifework was tidy and the rice temperature spot on,8
+The opening bite felt concept over flavor with cured fish too sharp and herbs that clashed. Pretty plate yet confused taste,8
+Chicken was watery and the rice oily. The chili dip stung without depth,8
+Dough seemed rushed with pale spots. Cheese pooled in grease and basil was scarce,8
+Char kway teow was oily with overcooked cockles. The dish lacked smoke and balance,8
+Sashimi cuts were ragged and the rice cold. Wasabi tasted like paste,8
+We were seated on schedule and the chef sent an amuse of corn velouté with chive oil. Short rib braised 12 hours yielded at a touch. Service paced the meal so courses landed warm,9
+Omakase flowed from light to rich with kohada then botan ebi then otoro. Rice seasoning stayed consistent and nori crackled on the final hand roll. Tea refills were quiet and constant,9
+Lamb rack came medium rare with a herb crust and mint yogurt. Couscous carried citrus and the jus was glossy. Portions matched the price,9
+Seafood stew layered prawn stock fennel and saffron. Mussels opened perfectly and the toast soaked without turning mush. Staff explained allergens clearly,9
+Bakery croissants showed even honeycomb and a clean butter aroma. Pain au chocolat snapped dark and not too sweet. The queue moved fast,9
+Our table ran 20 minutes late and a lukewarm soup arrived as an apology. The braised beef was stringy. Courses stalled and rewarmed plates showed it,9
+Omakase order felt random and rice swung from cold to hot. The last roll was soggy. Tea sat empty,9
+Lamb was grey at the edges and the crust bitter. Garnishes felt like filler. Prices overshot the execution,9
+Seafood stew tasted muddy with closed mussels left in. Toast disintegrated. The allergen info was vague,9
+Croissants were dense and butter left a waxy film. Chocolate leaned overly sweet. The line barely moved,9
+Anniversary dinner ran like clockwork as we were seated by the window at 7:30 pm and our dietary notes were remembered. Local snapper was pan roasted to translucent and paired with torch ginger beurre blanc; okra was lightly charred. The sommelier adjusted a pairing when we shifted a course and the pacing never lagged,10
+A weekend brunch reservation for four was honored early. Eggs Benedict arrived with runny yolks and clarified butter hollandaise over crisp rosti. Coffee refills landed before we asked and the room stayed calm enough to chat,10
+Chef’s counter tasting showcased sauces mounted at the last minute. Duck breast rested properly and kept a rosy center while the carrot course layered miso butter and citrus. Service anticipated water bread and cutlery changes without prompting,10
+Street stall tour stop delivered textbook char kway teow with plump cockles and calibrated chili heat. The wok cook timed every batch to order and the queue system stayed efficient. Atmosphere was lively yet organized,10
+Business lunch hit the brief with barramundi glazed in lemon myrtle plus crisp snow peas and a clean potato puree. Bills split accurately and Wi Fi was stable while the space stayed quiet enough to talk terms,10
+A big deal birthday dinner went sideways despite a confirmed 8:00 pm booking and we were seated at 8:45 near the service door. The tasting sequence felt disjointed and sauces broke on two plates. Staff seemed overwhelmed and nobody followed up,10
+Brunch for six started with a lost reservation. Poached eggs were set hard and hollandaise split while the rosti sagged. Coffee service lagged and the room boomed,10
+At the chef’s counter the mise looked frantic. Fish skin was flabby and a reduction tasted scorched. Cutlery swaps were inconsistent and the check arrived before dessert,10
+Famed hawker stall pushed out pre fried batches and noodles were oily while cockles turned rubbery with chili one note. The queue scattered and tempers flared. Clean up struggled to keep up,10
+Client lunch derailed as the grilled fish was overcooked and vegetable sides under seasoned and a wrong bill delayed us fifteen minutes. The space echoed and Wi Fi kept dropping,10

@@ -8,7 +8,9 @@ import { getContract } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
   Star,
-  Send
+  Send,
+  Calculator,
+  TrendingUp
 } from "lucide-react";
 import Link from 'next/link';
 import Header from '../../components/Header';
@@ -35,19 +37,137 @@ export default function Review() {
     value: 0
   });
   const [loading, setLoading] = useState(false);
+  const [confidenceScore, setConfidenceScore] = useState(null);
+  const [calculatingScore, setCalculatingScore] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [restaurantData, setRestaurantData] = useState(null);
+  const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
     const orderData = localStorage.getItem('completedOrder');
     if (orderData) {
-      setOrder(JSON.parse(orderData));
+      const orderObj = JSON.parse(orderData);
+      setOrder(orderObj);
+      
+      // Only fetch data if account is available
+      if (account?.address) {
+        fetchUserAndRestaurantData(orderObj);
+      }
     }
-  }, []);
+  }, [account?.address]); // Add dependency on account address
+
+  const fetchUserAndRestaurantData = async (orderObj) => {
+    console.log('Debug - fetchUserAndRestaurantData called');
+    console.log('account?.address:', account?.address);
+    console.log('orderObj.restaurantId:', orderObj.restaurantId);
+    
+    setDataLoading(true);
+    
+    try {
+      // Fetch user data
+      if (account?.address) {
+        console.log('Fetching user data...');
+        const userResponse = await fetch(`/api/users?address=${account.address}`);
+        console.log('User response status:', userResponse.status);
+        if (userResponse.ok) {
+          const user = await userResponse.json();
+          console.log('User data received:', user);
+          setUserData(user);
+        } else {
+          console.error('Failed to fetch user data:', userResponse.status);
+        }
+      } else {
+        console.error('No wallet address available');
+      }
+
+      // Fetch restaurant data
+      if (orderObj.restaurantId) {
+        console.log('Fetching restaurant data...');
+        const restaurantResponse = await fetch(`/api/restaurants/${orderObj.restaurantId}`);
+        console.log('Restaurant response status:', restaurantResponse.status);
+        if (restaurantResponse.ok) {
+          const restaurant = await restaurantResponse.json();
+          console.log('Restaurant data received:', restaurant);
+          setRestaurantData(restaurant);
+        } else {
+          console.error('Failed to fetch restaurant data:', restaurantResponse.status);
+        }
+      } else {
+        console.error('No restaurant ID available');
+      }
+    } catch (error) {
+      console.error('Error fetching user/restaurant data:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
   const handleRatingChange = (category, value) => {
     setReview(prev => ({
       ...prev,
       [category]: value
     }));
+  };
+
+  const calculateConfidenceScore = async () => {
+    // Debug logging
+    console.log('Debug - calculateConfidenceScore called');
+    console.log('review.review:', review.review);
+    console.log('review.rating:', review.rating);
+    console.log('order:', order);
+    console.log('userData:', userData);
+    console.log('restaurantData:', restaurantData);
+    
+    if (!review.review.trim() || !review.rating) {
+      toast.error('Please complete the review text and rating');
+      return;
+    }
+    
+    if (!order) {
+      toast.error('Order data not found');
+      return;
+    }
+    
+    if (!userData) {
+      toast.error('User data not loaded. Please wait...');
+      return;
+    }
+    
+    if (!restaurantData) {
+      toast.error('Restaurant data not loaded. Please wait...');
+      return;
+    }
+
+    setCalculatingScore(true);
+    
+    try {
+      const response = await fetch('/api/reviews/calculate-confidence', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reviewData: review,
+          orderData: order,
+          userData: userData,
+          restaurantData: restaurantData
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setConfidenceScore(result.confidenceScore);
+        toast.success(`Confidence Score: ${result.confidenceScore}/100`);
+        console.log('Confidence breakdown:', result.breakdown);
+      } else {
+        throw new Error('Failed to calculate confidence score');
+      }
+    } catch (error) {
+      console.error('Error calculating confidence score:', error);
+      toast.error('Failed to calculate confidence score');
+    } finally {
+      setCalculatingScore(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -76,7 +196,7 @@ export default function Review() {
         date: new Date().toISOString(),
         upvotes: 0,
         downvotes: 0,
-        confidenceScore: 85,
+        confidenceScore: confidenceScore || 85,
         createdAt: new Date().toISOString(),
         foodQuality: review.foodQuality,
         service: review.service,
@@ -252,6 +372,71 @@ export default function Review() {
                     placeholder="Share your experience..."
                     required
                   />
+                </div>
+
+                {/* Confidence Score Section */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-700">Review Confidence Score</h3>
+                    {confidenceScore !== null && (
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                        <span className="text-lg font-bold text-green-600">{confidenceScore}/100</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Data Loading Status */}
+                  {dataLoading && (
+                    <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-700">
+                      Loading user and restaurant data...
+                    </div>
+                  )}
+                  
+                  {/* Missing Data Warning */}
+                  {!dataLoading && (!userData || !restaurantData) && (
+                    <div className="mb-3 p-2 bg-yellow-50 rounded text-sm text-yellow-700">
+                      {!userData && !restaurantData && "Loading user and restaurant data..."}
+                      {!userData && restaurantData && "Loading user data..."}
+                      {userData && !restaurantData && "Loading restaurant data..."}
+                      <button
+                        type="button"
+                        onClick={() => order && fetchUserAndRestaurantData(order)}
+                        className="ml-2 text-blue-600 underline hover:text-blue-800"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={calculateConfidenceScore}
+                    disabled={calculatingScore || !review.review.trim() || !review.rating || !userData || !restaurantData}
+                    className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {calculatingScore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Calculating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Calculator className="w-4 h-4" />
+                        <span>Calculate Confidence Score</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  {confidenceScore !== null && (
+                    <div className="text-xs text-gray-600 mt-2">
+                      <p className="font-medium mb-1">AI Confidence Analysis:</p>
+                      <div className="space-y-1">
+                        <p>• <span className="font-medium">Core (100 pts):</span> Context matching (60%) + Detail level (40%)</p>
+                        <p>• <span className="font-medium">Bonus:</span> Spending patterns + Preferences + Rating consistency</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}
