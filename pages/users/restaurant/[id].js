@@ -44,10 +44,8 @@ export default function RestaurantMenu() {
       const restaurantData = await restaurantResponse.json();
       setRestaurant(restaurantData);
 
-      // Fetch menu items for this restaurant
-      const menuResponse = await fetch(`/api/menu?merchantId=${restaurantData.merchantId || 'merchant_1'}`);
-      const menuData = await menuResponse.json();
-      setMenuItems(menuData.menuItems || []);
+      // Use menu data directly from restaurant object
+      setMenuItems(restaurantData.menu || []);
     } catch (error) {
       console.error('Error fetching restaurant data:', error);
       toast.error('Failed to load restaurant data');

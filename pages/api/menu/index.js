@@ -13,15 +13,19 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Merchant ID is required' });
     }
 
-    // Read the menu.json file
-    const dataPath = path.join(process.cwd(), 'data', 'menu.json');
-    const menuData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    // Read the merchants.json file
+    const dataPath = path.join(process.cwd(), 'data', 'merchants.json');
+    const merchantsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 
-    // Filter menu items by merchant ID
-    const menuItems = menuData.menuItems.filter(item => item.merchantId === merchantId);
+    // Find merchant by ID and get their menu
+    const merchant = merchantsData.merchants.find(merchant => merchant.id === merchantId);
+    
+    if (!merchant) {
+      return res.status(404).json({ message: 'Merchant not found' });
+    }
 
     return res.status(200).json({
-      menuItems: menuItems || []
+      menuItems: merchant.menu || []
     });
   } catch (error) {
     console.error('Error fetching menu items:', error);
