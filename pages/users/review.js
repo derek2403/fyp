@@ -229,7 +229,7 @@ export default function Review() {
       localStorage.removeItem('completedOrder');
       
       setTimeout(() => {
-        router.push('/users/dashboard');
+        router.push('/users/menu');
       }, 2000);
       
     } catch (error) {
