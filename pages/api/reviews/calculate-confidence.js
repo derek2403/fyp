@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       '$$$': 35,
       '$$$$': 50
     };
-    
+     
     const expectedSpending = priceRangeMap[restaurantData.priceRange] || 20;
     const actualSpending = orderData.total;
     const spendingRatio = actualSpending / expectedSpending;
