@@ -231,10 +231,13 @@ export default function RestaurantMenu() {
     }
     
     // Store cart data for checkout
-    localStorage.setItem('checkoutCart', JSON.stringify({
+    localStorage.setItem('currentOrder', JSON.stringify({
       items: cart,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
       restaurant: restaurant,
-      total: getTotalPrice()
+      total: getTotalPrice(),
+      orderDate: new Date().toISOString()
     }));
     
     router.push('/users/checkout');

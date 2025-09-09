@@ -44,15 +44,24 @@ export default function Review() {
   const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
+    console.log('Review page useEffect - account?.address:', account?.address);
     const orderData = localStorage.getItem('completedOrder');
+    console.log('Order data from localStorage:', orderData);
+    
     if (orderData) {
       const orderObj = JSON.parse(orderData);
+      console.log('Parsed order object:', orderObj);
       setOrder(orderObj);
       
       // Only fetch data if account is available
       if (account?.address) {
+        console.log('Fetching user and restaurant data...');
         fetchUserAndRestaurantData(orderObj);
+      } else {
+        console.log('No account address available yet');
       }
+    } else {
+      console.log('No order data found in localStorage');
     }
   }, [account?.address]); // Add dependency on account address
 
@@ -278,7 +287,7 @@ export default function Review() {
               
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 mb-2">{order.restaurantName}</h3>
-                <p className="text-sm text-gray-600">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-600">Order Date: {new Date(order.paymentDate || order.orderDate).toLocaleDateString()}</p>
               </div>
               
               <div className="space-y-3 mb-4">

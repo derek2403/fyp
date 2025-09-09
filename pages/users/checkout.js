@@ -40,8 +40,8 @@ export default function Checkout() {
     
     const orderData = localStorage.getItem('currentOrder');
     if (!orderData) {
-      // Always go to review when there's no active order
-      router.replace('/users/review');
+      // No active order, go back to menu
+      router.replace('/users/menu');
       return;
     }
     
@@ -90,6 +90,7 @@ export default function Checkout() {
         ...order,
         userId: userData.id,
         merchantId: order.restaurantId,
+        restaurantId: order.restaurantId, // Add this for review page compatibility
         username: userData.username,
         orderId: `order_${Date.now()}`,
         paymentMethod,
