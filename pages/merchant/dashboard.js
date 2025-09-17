@@ -21,10 +21,37 @@ import {
   Plus,
   Search,
   Filter,
-  BarChart3
+  BarChart3,
+  Trash2,
+  X
 } from "lucide-react";
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+
+const DAYS_OF_WEEK = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+const createDefaultHours = () => ({
+  open: '09:00',
+  close: '21:00',
+  closed: false,
+});
+
+const createEmptyMenuItem = () => ({
+  id: Date.now() + Math.floor(Math.random() * 1000),
+  name: '',
+  description: '',
+  price: '',
+  category: 'main-course',
+  image: null,
+});
 
 // Smart contract configuration
 const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
@@ -46,6 +73,12 @@ export default function MerchantDashboard() {
   const [selectedRating, setSelectedRating] = useState('all');
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [menuDraft, setMenuDraft] = useState([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingMenu, setSavingMenu] = useState(false);
   const hasFetchedRef = useRef(false);
   const currentAddressRef = useRef(null);
 
@@ -72,6 +105,47 @@ export default function MerchantDashboard() {
       fetchMerchantData();
     }
   }, [address, router]);
+
+  useEffect(() => {
+    if (!merchantData) {
+      setEditForm(null);
+      return;
+    }
+
+    const normalizedHours = DAYS_OF_WEEK.reduce((acc, day) => {
+      const hours = merchantData.openingHours?.[day] || createDefaultHours();
+      acc[day] = {
+        open: hours.open || '',
+        close: hours.close || '',
+        closed: Boolean(hours.closed),
+      };
+      return acc;
+    }, {});
+
+    setEditForm({
+      shopName: merchantData.shopName || '',
+      description: merchantData.description || '',
+      businessAddress: merchantData.businessAddress || '',
+      phone: merchantData.phone || '',
+      website: merchantData.website || '',
+      priceRange: merchantData.priceRange || 'moderate',
+      openingHours: normalizedHours,
+    });
+  }, [merchantData]);
+
+  useEffect(() => {
+    setMenuDraft(
+      menuItems.map((item) => ({
+        ...item,
+        price:
+          typeof item.price === 'number'
+            ? item.price.toFixed(2)
+            : item.price ?? '',
+        description: item.description || '',
+        category: item.category || 'main-course',
+      }))
+    );
+  }, [menuItems]);
 
   const fetchMerchantData = async () => {
     try {
@@ -165,6 +239,162 @@ export default function MerchantDashboard() {
     }
   };
 
+  const handleEditFieldChange = (field, value) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleOpeningHourChange = (day, field, value) => {
+    setEditForm((prev) => ({
+      ...prev,
+      openingHours: {
+        ...prev.openingHours,
+        [day]: {
+          ...prev.openingHours[day],
+          [field]: field === 'closed' ? Boolean(value) : value,
+        },
+      },
+    }));
+  };
+
+  const handleMenuItemChange = (index, field, value) => {
+    setMenuDraft((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const addMenuItem = () => {
+    setMenuDraft((prev) => [...prev, createEmptyMenuItem()]);
+  };
+
+  const removeMenuItem = (index) => {
+    setMenuDraft((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!merchantData || !editForm) {
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const normalizedHours = DAYS_OF_WEEK.reduce((acc, day) => {
+        const hours = editForm.openingHours?.[day] || createDefaultHours();
+        acc[day] = {
+          open: hours.closed ? hours.open || '' : hours.open,
+          close: hours.closed ? hours.close || '' : hours.close,
+          closed: Boolean(hours.closed),
+        };
+        return acc;
+      }, {});
+
+      const response = await fetch('/api/merchants/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: merchantData.id,
+          updates: {
+            ...editForm,
+            openingHours: normalizedHours,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update merchant');
+      }
+
+      const data = await response.json();
+      setMerchantData(data.merchant);
+      toast.success('Restaurant details updated');
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error updating merchant details:', error);
+      toast.error('Failed to update restaurant details');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleMenuSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!merchantData) {
+      return;
+    }
+
+    const hasInvalidItem = menuDraft.some(
+      (item) => !item.name.trim() || item.price === '' || Number.isNaN(Number(item.price))
+    );
+
+    if (hasInvalidItem) {
+      toast.error('Please fill in name and valid price for each menu item');
+      return;
+    }
+
+    setSavingMenu(true);
+    try {
+      const preparedMenu = menuDraft.map((item) => {
+        const parsedPrice = Number(item.price);
+        const price = Number.isFinite(parsedPrice) ? parsedPrice.toFixed(2) : item.price;
+        return {
+          ...item,
+          name: item.name.trim(),
+          description: item.description || '',
+          price,
+          category: item.category || 'main-course',
+        };
+      });
+
+      const response = await fetch('/api/menu/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchantId: merchantData.id,
+          menuItems: preparedMenu,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update menu');
+      }
+
+      const data = await response.json();
+      setMenuItems(data.menuItems);
+      setMerchantData((prev) =>
+        prev
+          ? {
+              ...prev,
+              menu: data.menuItems,
+              updatedAt: data.updatedAt || prev.updatedAt,
+            }
+          : prev
+      );
+      toast.success('Menu updated');
+      setShowMenuModal(false);
+    } catch (error) {
+      console.error('Error updating menu:', error);
+      toast.error('Failed to update menu');
+    } finally {
+      setSavingMenu(false);
+    }
+  };
+
   const filteredReviews = reviews.filter(review => {
     const matchesSearch = review.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          review.review.toLowerCase().includes(searchTerm.toLowerCase());
@@ -227,10 +457,14 @@ export default function MerchantDashboard() {
               <span className="text-xl font-bold text-gray-900">FoodChain</span>
             </Link>
             <div className="flex items-center space-x-4">
-              <Link href="/merchant/menu" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
+              <button
+                onClick={() => setShowMenuModal(true)}
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                type="button"
+              >
                 <Plus className="w-5 h-5" />
                 <span>Manage Menu</span>
-              </Link>
+              </button>
               <span className="text-sm text-gray-600">
                 {address?.slice(0, 6)}...{address?.slice(-4)}
               </span>
@@ -313,7 +547,11 @@ export default function MerchantDashboard() {
         >
           <div className="flex justify-between items-start mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Restaurant Information</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+            <button
+              onClick={() => setShowEditModal(true)}
+              type="button"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
               <Edit className="w-4 h-4 inline mr-1" />
               Edit
             </button>
@@ -365,9 +603,13 @@ export default function MerchantDashboard() {
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Top Menu Items</h3>
-              <Link href="/merchant/menu" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              <button
+                onClick={() => setShowMenuModal(true)}
+                type="button"
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
                 Manage Menu
-              </Link>
+              </button>
             </div>
             <div className="space-y-3">
               {menuItems.slice(0, 3).map((item) => (
@@ -432,9 +674,13 @@ export default function MerchantDashboard() {
                 }
               </p>
               {reviews.length === 0 && (
-                <Link href="/merchant/menu" className="btn-primary">
+                <button
+                  onClick={() => setShowMenuModal(true)}
+                  type="button"
+                  className="btn-primary"
+                >
                   Manage Menu
-                </Link>
+                </button>
               )}
             </div>
           ) : (
@@ -562,6 +808,265 @@ export default function MerchantDashboard() {
           )}
         </div>
       </div>
+
+      {/* Edit Restaurant Modal */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-gray-900">Edit Restaurant Details</h2>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Restaurant Name</label>
+                  <input
+                    type="text"
+                    value={editForm.shopName}
+                    onChange={(e) => handleEditFieldChange('shopName', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => handleEditFieldChange('description', e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Business Address</label>
+                  <input
+                    type="text"
+                    value={editForm.businessAddress}
+                    onChange={(e) => handleEditFieldChange('businessAddress', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => handleEditFieldChange('phone', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Website</label>
+                  <input
+                    type="url"
+                    value={editForm.website}
+                    onChange={(e) => handleEditFieldChange('website', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Price Range</label>
+                  <select
+                    value={editForm.priceRange}
+                    onChange={(e) => handleEditFieldChange('priceRange', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="budget">Budget</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="premium">Premium</option>
+                    <option value="luxury">Luxury</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-gray-900">Opening Hours</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div key={day} className="rounded-lg border border-gray-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium capitalize text-gray-900">{day}</span>
+                        <label className="flex items-center text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={editForm.openingHours?.[day]?.closed || false}
+                            onChange={(e) => handleOpeningHourChange(day, 'closed', e.target.checked)}
+                            className="mr-2"
+                          />
+                          Closed
+                        </label>
+                      </div>
+                      {!editForm.openingHours?.[day]?.closed && (
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-500">Opens</label>
+                            <input
+                              type="time"
+                              value={editForm.openingHours?.[day]?.open || ''}
+                              onChange={(e) => handleOpeningHourChange(day, 'open', e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-500">Closes</label>
+                            <input
+                              type="time"
+                              value={editForm.openingHours?.[day]?.close || ''}
+                              onChange={(e) => handleOpeningHourChange(day, 'close', e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={savingEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Menu Modal */}
+      {showMenuModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-gray-900">Manage Menu</h2>
+              <button
+                type="button"
+                onClick={() => setShowMenuModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleMenuSubmit} className="space-y-6">
+              <div className="space-y-4">
+                {menuDraft.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-gray-600">
+                    No menu items yet. Add your first item below.
+                  </div>
+                )}
+
+                {menuDraft.map((item, index) => (
+                  <div key={item.id} className="rounded-lg border border-gray-200 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Item {index + 1}</h3>
+                      <button
+                        type="button"
+                        onClick={() => removeMenuItem(index)}
+                        className="flex items-center text-sm text-red-500 hover:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => handleMenuItemChange(index, 'name', e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+                        <input
+                          type="text"
+                          value={item.category}
+                          onChange={(e) => handleMenuItemChange(index, 'category', e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                        <textarea
+                          value={item.description}
+                          onChange={(e) => handleMenuItemChange(index, 'description', e.target.value)}
+                          rows={2}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.price}
+                          onChange={(e) => handleMenuItemChange(index, 'price', e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={addMenuItem}
+                  className="rounded-lg border border-dashed border-blue-400 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                >
+                  Add Menu Item
+                </button>
+                <div className="space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowMenuModal(false)}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    disabled={savingMenu}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingMenu}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {savingMenu ? 'Saving...' : 'Save Menu'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}
