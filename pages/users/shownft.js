@@ -30,6 +30,9 @@ const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || 'your-thirdweb-client-id',
 });
 
+const FALLBACK_IMAGE_URL =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Good_Food_Display_-_NCI_Visuals_Online.jpg/500px-Good_Food_Display_-_NCI_Visuals_Online.jpg';
+
 const decodeMetadata = (tokenURI) => {
   if (!tokenURI) return null;
 
@@ -177,12 +180,12 @@ export default function ShowNftPage() {
           tokenIdsToCheck = Array.from({ length: Number(balance) }, (_, idx) => BigInt(idx + 1));
         }
 
-        const tokenDetails = await Promise.all(
-          tokenIdsToCheck.map(async (tokenId) => {
-            try {
-              const owner = await readContract({
-                contract,
-                method: 'function ownerOf(uint256 tokenId) view returns (address)',
+      const tokenDetails = await Promise.all(
+        tokenIdsToCheck.map(async (tokenId) => {
+          try {
+            const owner = await readContract({
+              contract,
+              method: 'function ownerOf(uint256 tokenId) view returns (address)',
                 params: [tokenId],
               });
 
@@ -196,7 +199,11 @@ export default function ShowNftPage() {
                 params: [tokenId],
               });
 
-              const metadata = decodeMetadata(uri);
+            const metadata = decodeMetadata(uri) || {
+              name: 'Pro Reviewer Badge',
+              description: 'Exclusive recognition for top community reviewers.',
+              image: FALLBACK_IMAGE_URL,
+            };
               return {
                 tokenId: formatTokenId(tokenId),
                 tokenURI: uri,
@@ -281,17 +288,11 @@ export default function ShowNftPage() {
           >
             <div className="flex flex-col gap-6 lg:flex-row">
               <div className="mx-auto w-full max-w-xs overflow-hidden rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-lg">
-                {token?.metadata?.image ? (
-                  <img
-                    src={token.metadata.image}
-                    alt={token?.metadata?.name || 'Pro Reviewer NFT'}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center p-10 text-white">
-                    <ImageIcon className="h-12 w-12" />
-                  </div>
-                )}
+                <img
+                  src={token?.metadata?.image || FALLBACK_IMAGE_URL}
+                  alt={token?.metadata?.name || 'Pro Reviewer NFT'}
+                  className="h-full w-full object-cover"
+                />
               </div>
               <div className="flex-1 space-y-4">
                 <div>

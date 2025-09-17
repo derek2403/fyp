@@ -67,7 +67,8 @@ export default function ProReviewerNftPage() {
       const metadata = {
         name: NFT_NAME,
         description: NFT_DESCRIPTION,
-        image: imageUrl,
+        image:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Good_Food_Display_-_NCI_Visuals_Online.jpg/500px-Good_Food_Display_-_NCI_Visuals_Online.jpg',
         attributes: [
           { trait_type: 'Badge', value: 'Pro Reviewer' },
           { trait_type: 'Network', value: 'Base Sepolia' },
@@ -89,7 +90,7 @@ export default function ProReviewerNftPage() {
       });
 
       setTransactionHash(hash);
-      setLastImage(imageUrl);
+      setLastImage(metadata.image);
       toast.success('Pro Reviewer NFT minted successfully!');
     } catch (error) {
       console.error('Error minting NFT:', error);

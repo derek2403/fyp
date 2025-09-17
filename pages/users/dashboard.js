@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { getContract, readContract } from "thirdweb";
+import { getContract, readContract, getContractEvents, prepareEvent } from "thirdweb";
 import { motion } from "framer-motion";
 import { 
   Star, 
@@ -26,6 +26,8 @@ import toast from 'react-hot-toast';
 
 // Smart contract configuration
 const CONTRACT_ADDRESS = "0xE00f2f9355442921C8B5Dc14F74BAAcBD971B828";
+const BADGE_CONTRACT_ADDRESS = "0xc7a0342341004B1b97aDd3ea7347e45d10d2ca95";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Create thirdweb client
 const client = createThirdwebClient({
@@ -43,6 +45,7 @@ export default function UserDashboard() {
   const [selectedRating, setSelectedRating] = useState('all');
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [badgeTokens, setBadgeTokens] = useState([]);
 
   // Get contract instance
   const contract = getContract({
@@ -51,12 +54,19 @@ export default function UserDashboard() {
     address: CONTRACT_ADDRESS,
   });
 
+  const badgeContract = getContract({
+    client,
+    chain: baseSepolia,
+    address: BADGE_CONTRACT_ADDRESS,
+  });
+
   useEffect(() => {
     if (!address) {
       router.push('/users/login');
       return;
     }
     fetchUserData();
+    fetchUserBadges();
   }, [address, router]);
 
   const fetchUserData = async () => {
@@ -73,6 +83,122 @@ export default function UserDashboard() {
       toast.error('Failed to load user data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const decodeBadgeMetadata = (tokenURI) => {
+    if (!tokenURI) return null;
+    const prefix = 'data:application/json;base64,';
+    if (!tokenURI.startsWith(prefix)) {
+      return null;
+    }
+    try {
+      const base64 = tokenURI.slice(prefix.length);
+      if (typeof window === 'undefined' && typeof globalThis.Buffer !== 'undefined') {
+        return JSON.parse(globalThis.Buffer.from(base64, 'base64').toString('utf-8'));
+      }
+      const decoded = window.atob(base64);
+      const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (error) {
+      console.error('Failed to decode badge metadata:', error);
+      return null;
+    }
+  };
+
+  const fetchUserBadges = async () => {
+    if (!address) {
+      setBadgeTokens([]);
+      return;
+    }
+
+    try {
+      const balance = await readContract({
+        contract: badgeContract,
+        method: 'function balanceOf(address owner) view returns (uint256)',
+        params: [address],
+      });
+
+      if (!balance || BigInt(balance) === 0n) {
+        setBadgeTokens([]);
+        return;
+      }
+
+      const transferEvent = prepareEvent({
+        signature: 'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+        filters: {
+          from: ZERO_ADDRESS,
+          to: address,
+        },
+      });
+
+      const events = await getContractEvents({
+        contract: badgeContract,
+        events: [transferEvent],
+        fromBlock: 0n,
+        useIndexer: false,
+      });
+
+      const mintedTokenIds = Array.from(
+        new Set(
+          events
+            .map((log) => log?.data?.tokenId)
+            .filter((tokenId) => tokenId !== undefined && tokenId !== null)
+            .map((tokenId) => {
+              try {
+                return BigInt(tokenId);
+              } catch {
+                return null;
+              }
+            })
+            .filter((tokenId) => tokenId !== null),
+        ),
+      );
+
+      let tokenIdsToCheck = mintedTokenIds;
+
+      if (tokenIdsToCheck.length === 0) {
+        tokenIdsToCheck = Array.from({ length: Number(balance) }, (_, idx) => BigInt(idx + 1));
+      }
+
+      const tokenDetails = await Promise.all(
+        tokenIdsToCheck.map(async (tokenId) => {
+          try {
+            const owner = await readContract({
+              contract: badgeContract,
+              method: 'function ownerOf(uint256 tokenId) view returns (address)',
+              params: [tokenId],
+            });
+
+            if (owner.toLowerCase() !== address.toLowerCase()) {
+              return null;
+            }
+
+            const tokenURI = await readContract({
+              contract: badgeContract,
+              method: 'function tokenURI(uint256 tokenId) view returns (string)',
+              params: [tokenId],
+            });
+
+            const metadata = decodeBadgeMetadata(tokenURI);
+
+            return {
+              tokenId: tokenId.toString(),
+              tokenURI,
+              metadata,
+            };
+          } catch (error) {
+            console.error('Failed to load badge token data:', error);
+            return null;
+          }
+        }),
+      );
+
+      const ownedTokens = tokenDetails.filter(Boolean);
+      setBadgeTokens(ownedTokens);
+    } catch (error) {
+      console.error('Error fetching badges:', error);
+      setBadgeTokens([]);
     }
   };
 
@@ -272,14 +398,14 @@ export default function UserDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">NFT Badges</p>
-                <p className="text-2xl font-bold text-gray-900">{userData?.nftBadges?.length || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{badgeTokens.length}</p>
               </div>
             </div>
           </motion.div>
         </div>
 
         {/* NFT Badges */}
-        {userData?.nftBadges && userData.nftBadges.length > 0 && (
+        {badgeTokens.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -288,11 +414,25 @@ export default function UserDashboard() {
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Your NFT Badges</h3>
             <div className="grid md:grid-cols-3 gap-4">
-              {userData.nftBadges.map((badge) => (
-                <div key={badge.id} className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
-                  <div className="text-3xl mb-2">{badge.icon}</div>
-                  <h4 className="font-semibold text-gray-900 mb-1">{badge.name}</h4>
-                  <p className="text-sm text-gray-600">{badge.description}</p>
+              {badgeTokens.map((badge) => (
+                <div
+                  key={badge.tokenId}
+                  className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200"
+                >
+                  <div className="mb-3 overflow-hidden rounded-xl">
+                    <img
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Good_Food_Display_-_NCI_Visuals_Online.jpg/500px-Good_Food_Display_-_NCI_Visuals_Online.jpg"
+                      alt={badge?.metadata?.name || 'Pro Reviewer Badge'}
+                      className="h-32 w-full object-cover"
+                    />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    {badge?.metadata?.name || 'Pro Reviewer Badge'}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    {badge?.metadata?.description || 'Exclusive recognition for top community reviewers.'}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500">Token ID #{badge.tokenId}</p>
                 </div>
               ))}
             </div>
