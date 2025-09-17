@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import { Buffer } from 'buffer';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, prepareContractCall, sendAndConfirmTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
@@ -19,6 +20,19 @@ const NFT_DESCRIPTION = 'Awarded to trusted voices whose reviews uplift the Food
 
 const getRandomImageUrl = () =>
   `https://source.unsplash.com/600x600/?food,reviewer,award&sig=${Math.floor(Math.random() * 10_000)}`;
+
+const encodeMetadata = (metadata) => {
+  try {
+    const json = JSON.stringify(metadata);
+    if (typeof window === 'undefined') {
+      return Buffer.from(json).toString('base64');
+    }
+    return window.btoa(unescape(encodeURIComponent(json)));
+  } catch (error) {
+    console.error('Failed to encode metadata:', error);
+    throw error;
+  }
+};
 
 export default function ProReviewerNftPage() {
   const account = useActiveAccount();
@@ -63,9 +77,7 @@ export default function ProReviewerNftPage() {
         ],
       };
 
-      const encodedMetadata = `data:application/json;base64,${btoa(
-        unescape(encodeURIComponent(JSON.stringify(metadata)))
-      )}`;
+      const encodedMetadata = `data:application/json;base64,${encodeMetadata(metadata)}`;
 
       const transaction = await prepareContractCall({
         contract,
