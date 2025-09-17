@@ -157,9 +157,6 @@ export default function ProReviewerNftPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-8">
-          <Link href="/users/dashboard" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
-            ← Back to Dashboard
-          </Link>
           <h1 className="mt-3 text-3xl font-bold text-gray-900">Pro Reviewer NFT</h1>
           <p className="mt-2 text-gray-600 max-w-2xl">
             Celebrate your contribution to the FoodChain community with a unique on-chain badge. Minting takes place on
