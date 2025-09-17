@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { Buffer } from 'buffer';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, prepareContractCall, sendAndConfirmTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
@@ -24,8 +23,8 @@ const getRandomImageUrl = () =>
 const encodeMetadata = (metadata) => {
   try {
     const json = JSON.stringify(metadata);
-    if (typeof window === 'undefined') {
-      return Buffer.from(json).toString('base64');
+    if (typeof window === 'undefined' && typeof globalThis.Buffer !== 'undefined') {
+      return globalThis.Buffer.from(json).toString('base64');
     }
     return window.btoa(unescape(encodeURIComponent(json)));
   } catch (error) {
@@ -58,7 +57,6 @@ export default function ProReviewerNftPage() {
 
     try {
       const imageUrl = getRandomImageUrl();
-      setLastImage(imageUrl);
 
       const contract = getContract({
         client,
@@ -91,10 +89,17 @@ export default function ProReviewerNftPage() {
       });
 
       setTransactionHash(hash);
+      setLastImage(imageUrl);
       toast.success('Pro Reviewer NFT minted successfully!');
     } catch (error) {
       console.error('Error minting NFT:', error);
-      toast.error(error?.message || 'Failed to mint NFT');
+      const errorMessage =
+        error?.shortMessage || error?.reason || error?.message || 'Failed to mint NFT';
+      if (errorMessage.toLowerCase().includes('badge already claimed')) {
+        toast.error('You have already minted this badge.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setMinting(false);
     }
