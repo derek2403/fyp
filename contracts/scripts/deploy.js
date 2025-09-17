@@ -2,20 +2,18 @@ require("dotenv").config();
 const { ethers } = require("hardhat");
 
 async function main() {
-  console.log("Deploying ReviewContract to Base Sepolia…");
+  console.log("Deploying ProReviewerBadge to Base Sepolia…");
 
-  // 1. Compile & get your factory
-  const Factory = await ethers.getContractFactory("ReviewContract");
+  const [deployer] = await ethers.getSigners();
+  console.log("Deployer:", deployer.address);
 
-  // 2. Deploy (sends the tx)
-  const reviewContract = await Factory.deploy();
+  const Factory = await ethers.getContractFactory("ProReviewerBadge");
 
-  // 3. Wait for it to be mined
-  await reviewContract.waitForDeployment();
+  const badgeContract = await Factory.deploy(deployer.address);
+  await badgeContract.waitForDeployment();
 
-  // 4. Fetch the on-chain address
-  const address = await reviewContract.getAddress();
-  console.log("✅ Deployed at address:", address);
+  const address = await badgeContract.getAddress();
+  console.log("✅ ProReviewerBadge deployed at:", address);
 }
 
 main().catch((error) => {
