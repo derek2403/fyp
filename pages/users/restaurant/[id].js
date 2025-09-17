@@ -109,7 +109,9 @@ export default function RestaurantMenu() {
         username: review.username,
         restaurantName: review.restaurantName,
         rating: Number(review.rating),
+        // Keep both keys for backwards compatibility with existing UI usage
         review: review.reviewText,
+        reviewText: review.reviewText,
         date: review.date,
         upvotes: Number(review.upvotes),
         downvotes: Number(review.downvotes),
