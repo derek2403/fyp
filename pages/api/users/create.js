@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -13,40 +12,38 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
-    // Read the users.json file
-    const dataPath = path.join(process.cwd(), 'data', 'users.json');
-    const usersData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const normalizedAddress = userData.address.toLowerCase();
+    const db = await getDb();
+    const usersCollection = db.collection('users');
 
-    // Check if user already exists
-    const existingUser = usersData.users.find(user => user.address === userData.address);
+    const existingUser = await usersCollection.findOne({
+      $or: [{ address: userData.address }, { addressLower: normalizedAddress }],
+    });
+
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Create new user with ID
     const newUser = {
       id: `user_${Date.now()}`,
       ...userData,
+      addressLower: normalizedAddress,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       reliabilityScore: 85,
       nftBadges: [],
       totalReviews: 0,
-      averageRating: 0
+      averageRating: 0,
     };
 
-    // Add user to the array
-    usersData.users.push(newUser);
-
-    // Write back to file
-    fs.writeFileSync(dataPath, JSON.stringify(usersData, null, 2));
+    await usersCollection.insertOne(newUser);
 
     return res.status(201).json({
       message: 'User created successfully',
-      user: newUser
+      user: newUser,
     });
   } catch (error) {
     console.error('Error creating user:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
-} 
+}

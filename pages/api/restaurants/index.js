@@ -1,18 +1,18 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
-    // Read the merchants.json file
-    const dataPath = path.join(process.cwd(), 'data', 'merchants.json');
-    const merchantsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const db = await getDb();
+    const merchants = await db.collection('merchants').find({}).toArray();
 
-    // Transform merchants data to restaurant format for compatibility
-    const restaurants = merchantsData.merchants.map(merchant => {
+    const restaurants = merchants.map(merchant => {
+      if (merchant._id) {
+        merchant._id = merchant._id.toString();
+      }
       // Get cuisine icon based on first cuisine type
       let cuisineIcon = '🍽️';
       if (merchant.selectedCuisines && merchant.selectedCuisines.length > 0) {
@@ -60,7 +60,7 @@ export default function handler(req, res) {
     });
 
     return res.status(200).json({
-      restaurants: restaurants
+      restaurants
     });
   } catch (error) {
     console.error('Error fetching restaurants:', error);

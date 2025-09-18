@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -13,12 +12,8 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Restaurant ID is required' });
     }
 
-    // Read the merchants.json file
-    const dataPath = path.join(process.cwd(), 'data', 'merchants.json');
-    const merchantsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-
-    // Find merchant by ID
-    const merchant = merchantsData.merchants.find(merchant => merchant.id === id);
+    const db = await getDb();
+    const merchant = await db.collection('merchants').findOne({ id });
 
     if (!merchant) {
       return res.status(404).json({ message: 'Restaurant not found' });
@@ -51,6 +46,10 @@ export default function handler(req, res) {
     }
 
     // Transform merchant data to restaurant format for compatibility
+    if (merchant._id) {
+      merchant._id = merchant._id.toString();
+    }
+
     const restaurant = {
       id: merchant.id,
       name: merchant.shopName,

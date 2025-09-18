@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -13,27 +12,38 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Merchant id and updates are required' });
     }
 
-    const dataPath = path.join(process.cwd(), 'data', 'merchants.json');
-    const merchantsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const db = await getDb();
+    const merchantsCollection = db.collection('merchants');
 
-    const merchantIndex = merchantsData.merchants.findIndex((merchant) => merchant.id === id);
+    const existingMerchant = await merchantsCollection.findOne({ id });
 
-    if (merchantIndex === -1) {
+    if (!existingMerchant) {
       return res.status(404).json({ message: 'Merchant not found' });
     }
 
-    const existingMerchant = merchantsData.merchants[merchantIndex];
+    const updatedAt = new Date().toISOString();
+    const mergedOpeningHours = updates?.openingHours
+      ? { ...existingMerchant.openingHours, ...updates.openingHours }
+      : existingMerchant.openingHours;
 
-    const updatedMerchant = {
-      ...existingMerchant,
+    const updatedFields = {
       ...updates,
-      openingHours: updates?.openingHours ? { ...existingMerchant.openingHours, ...updates.openingHours } : existingMerchant.openingHours,
-      updatedAt: new Date().toISOString(),
+      openingHours: mergedOpeningHours,
+      updatedAt,
     };
 
-    merchantsData.merchants[merchantIndex] = updatedMerchant;
+    await merchantsCollection.updateOne(
+      { id },
+      {
+        $set: updatedFields,
+      },
+    );
 
-    fs.writeFileSync(dataPath, JSON.stringify(merchantsData, null, 2));
+    const updatedMerchant = { ...existingMerchant, ...updatedFields };
+
+    if (updatedMerchant._id) {
+      updatedMerchant._id = updatedMerchant._id.toString();
+    }
 
     return res.status(200).json({
       message: 'Merchant updated successfully',

@@ -14,6 +14,7 @@
     "ethers": "^5.7.2",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.263.1",
+    "mongodb": "^6.6.1",
     "next": "^14.0.0",
     "openai": "^5.19.1",
     "react": "^18.2.0",

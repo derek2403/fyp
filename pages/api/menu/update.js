@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -13,12 +12,12 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Merchant id and menu items are required' });
     }
 
-    const dataPath = path.join(process.cwd(), 'data', 'merchants.json');
-    const merchantsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const db = await getDb();
+    const merchantsCollection = db.collection('merchants');
 
-    const merchantIndex = merchantsData.merchants.findIndex((merchant) => merchant.id === merchantId);
+    const merchant = await merchantsCollection.findOne({ id: merchantId });
 
-    if (merchantIndex === -1) {
+    if (!merchant) {
       return res.status(404).json({ message: 'Merchant not found' });
     }
 
@@ -33,13 +32,15 @@ export default function handler(req, res) {
 
     const updatedAt = new Date().toISOString();
 
-    merchantsData.merchants[merchantIndex] = {
-      ...merchantsData.merchants[merchantIndex],
-      menu: sanitizedMenu,
-      updatedAt,
-    };
-
-    fs.writeFileSync(dataPath, JSON.stringify(merchantsData, null, 2));
+    await merchantsCollection.updateOne(
+      { id: merchantId },
+      {
+        $set: {
+          menu: sanitizedMenu,
+          updatedAt,
+        },
+      },
+    );
 
     return res.status(200).json({
       message: 'Menu updated successfully',

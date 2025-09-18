@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import { getDb } from '../../../lib/mongodb';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -13,25 +12,25 @@ export default function handler(req, res) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
-    // Read the users.json file
-    const dataPath = path.join(process.cwd(), 'data', 'users.json');
-    const usersData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const normalizedAddress = address.toLowerCase();
+    const db = await getDb();
+    const user = await db.collection('users').findOne({
+      $or: [{ address }, { addressLower: normalizedAddress }],
+    });
 
-    // Check if user exists by wallet address
-    const existingUser = usersData.users.find(user => user.address === address);
-
-    if (existingUser) {
+    if (user) {
+      if (user._id) {
+        user._id = user._id.toString();
+      }
       return res.status(200).json({
         exists: true,
-        user: existingUser
-      });
-    } else {
-      return res.status(200).json({
-        exists: false
+        user,
       });
     }
+
+    return res.status(200).json({ exists: false });
   } catch (error) {
     console.error('Error checking user:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
-} 
+}
